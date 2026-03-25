@@ -135,18 +135,46 @@ export async function main(
 
   // Keep alive until browser closes or process is killed
   const browser = context.browser();
-  await new Promise<void>((resolve) => {
-    context.on("close", () => resolve());
-    if (browser) browser.on("disconnected", () => resolve());
-    process.on("SIGINT", () => {
-      console.log("\nShutting down...");
-      resolve();
+  let onSigint: (() => void) | undefined;
+  let onSigterm: (() => void) | undefined;
+  const handleSignal = () => {
+    console.log("\nShutting down...");
+  };
+
+  try {
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+        resolve();
+      };
+      onSigint = () => {
+        handleSignal();
+        finish();
+      };
+      onSigterm = () => {
+        handleSignal();
+        finish();
+      };
+
+      context.on("close", finish);
+      if (browser) browser.on("disconnected", finish);
+      process.on("SIGINT", onSigint);
+      process.on("SIGTERM", onSigterm);
     });
-    process.on("SIGTERM", () => {
-      console.log("\nShutting down...");
-      resolve();
-    });
-  });
+  } finally {
+    if (onSigint) {
+      process.removeListener("SIGINT", onSigint);
+    }
+
+    if (onSigterm) {
+      process.removeListener("SIGTERM", onSigterm);
+    }
+  }
 
   await context.close().catch(() => {});
 }

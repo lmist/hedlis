@@ -209,6 +209,66 @@ test("main adds the resolved merged cookie set to the browser context on success
   ]]);
 });
 
+test("main preserves the chromium launch contract for headless startup", async () => {
+  const launchCalls: Array<{
+    userDataDir: string;
+    options: { headless: boolean; channel: "chromium"; args: string[] };
+  }> = [];
+
+  await main(["node", "dist/main.js", "--headless"], {
+    cookiesDir: "/tmp/injected-cookies",
+    loadCookies: async () => [],
+    prepareExtensions: async () => [],
+    makeTempDir: () => "/tmp/vilnius-profile",
+    makeDir: () => undefined,
+    writeFile: () => undefined,
+    launchPersistentContext: async (userDataDir, options) => {
+      launchCalls.push({ userDataDir, options });
+      return fakeContext();
+    },
+  });
+
+  assert.deepEqual(launchCalls, [
+    {
+      userDataDir: "/tmp/vilnius-profile",
+      options: {
+        headless: true,
+        channel: "chromium",
+        args: [],
+      },
+    },
+  ]);
+});
+
+test("main removes SIGINT and SIGTERM listeners before returning", async () => {
+  const sigintListenersBefore = process.rawListeners("SIGINT");
+  const sigtermListenersBefore = process.rawListeners("SIGTERM");
+
+  try {
+    await main(["node", "dist/main.js"], {
+      cookiesDir: "/tmp/injected-cookies",
+      loadCookies: async () => [],
+      prepareExtensions: async () => [],
+      makeTempDir: () => "/tmp/vilnius-profile",
+      makeDir: () => undefined,
+      writeFile: () => undefined,
+      launchPersistentContext: async () => fakeContext(),
+    });
+
+    assert.equal(
+      process.listenerCount("SIGINT"),
+      sigintListenersBefore.length,
+    );
+    assert.equal(
+      process.listenerCount("SIGTERM"),
+      sigtermListenersBefore.length,
+    );
+  } finally {
+    removeAdditionalListeners("SIGINT", sigintListenersBefore);
+    removeAdditionalListeners("SIGTERM", sigtermListenersBefore);
+  }
+});
+
 function cookie(overrides: Partial<Cookie>): Cookie {
   return {
     name: overrides.name ?? "session",
@@ -241,4 +301,15 @@ function fakeContext({
     },
     close: async () => undefined,
   };
+}
+
+function removeAdditionalListeners(
+  signal: "SIGINT" | "SIGTERM",
+  initialListeners: Function[],
+) {
+  for (const listener of process.rawListeners(signal)) {
+    if (!initialListeners.includes(listener)) {
+      process.removeListener(signal, listener as (...args: any[]) => void);
+    }
+  }
 }
