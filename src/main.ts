@@ -14,6 +14,14 @@ type ResolveStartupCookiesDependencies = {
   readChromeCookies?: typeof readChromeCookies;
 };
 
+type MainDependencies = ResolveStartupCookiesDependencies & {
+  prepareExtensions?: typeof prepareExtensions;
+  launchPersistentContext?: typeof chromium.launchPersistentContext;
+  makeTempDir?: typeof fs.mkdtempSync;
+  makeDir?: typeof fs.mkdirSync;
+  writeFile?: typeof fs.writeFileSync;
+};
+
 export async function resolveStartupCookies(
   cli: RunModeConfig,
   dependencies: ResolveStartupCookiesDependencies = {}
@@ -40,7 +48,10 @@ export async function resolveStartupCookies(
   return mergeCookies(diskCookies, browserCookies);
 }
 
-export async function main(argv: string[] = process.argv) {
+export async function main(
+  argv: string[] = process.argv,
+  dependencies: MainDependencies = {}
+) {
   const cli = parseCli(argv);
   if (cli.mode === "import-cookies") {
     const result = await importCookiesCommand({
@@ -55,9 +66,22 @@ export async function main(argv: string[] = process.argv) {
 
   const extensionsDir = path.resolve("extensions");
   const cookiesDir = path.resolve("cookies");
+  const cookies = await resolveStartupCookies(cli, {
+    cookiesDir,
+    loadCookies: dependencies.loadCookies,
+    readChromeCookies: dependencies.readChromeCookies,
+  });
+  const prepareExtensionsFn =
+    dependencies.prepareExtensions ?? prepareExtensions;
+  const launchPersistentContext =
+    dependencies.launchPersistentContext ??
+    chromium.launchPersistentContext.bind(chromium);
+  const makeTempDir = dependencies.makeTempDir ?? fs.mkdtempSync;
+  const makeDir = dependencies.makeDir ?? fs.mkdirSync;
+  const writeFile = dependencies.writeFile ?? fs.writeFileSync;
 
   // Prepare extensions from zips
-  const extensionPaths = await prepareExtensions(extensionsDir);
+  const extensionPaths = await prepareExtensionsFn(extensionsDir);
 
   // Build chromium args
   const args: string[] = [];
@@ -68,12 +92,12 @@ export async function main(argv: string[] = process.argv) {
   }
 
   // Persistent context is required for Chrome extensions to load
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "vilnius-profile-"));
+  const userDataDir = makeTempDir(path.join(os.tmpdir(), "vilnius-profile-"));
 
   // Enable developer mode for extensions in the fresh profile
   const defaultDir = path.join(userDataDir, "Default");
-  fs.mkdirSync(defaultDir, { recursive: true });
-  fs.writeFileSync(
+  makeDir(defaultDir, { recursive: true });
+  writeFile(
     path.join(defaultDir, "Preferences"),
     JSON.stringify({
       extensions: { ui: { developer_mode: true } },
@@ -81,14 +105,13 @@ export async function main(argv: string[] = process.argv) {
   );
 
   // Chrome ignores the side-load flags; Playwright's bundled Chromium does not.
-  const context = await chromium.launchPersistentContext(userDataDir, {
+  const context = await launchPersistentContext(userDataDir, {
     headless: cli.headless,
     channel: "chromium",
     args,
   });
 
   // Inject cookies
-  const cookies = await resolveStartupCookies(cli, { cookiesDir });
   if (cookies.length > 0) {
     await context.addCookies(cookies);
     console.log(`Injected ${cookies.length} cookies`);

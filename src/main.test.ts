@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseCli, isHeadlessEnabled, type RunModeConfig } from "./cli.js";
 import type { Cookie } from "./cookies.js";
-import { resolveStartupCookies } from "./main.js";
+import { main, resolveStartupCookies } from "./main.js";
 
 test("startup defaults to headed mode", () => {
   assert.equal(isHeadlessEnabled(["node", "dist/main.js"]), false);
@@ -121,6 +121,40 @@ test("startup fails fast when browser cookies are explicitly requested but Chrom
     }),
     /No cookies found for https:\/\/x\.com/,
   );
+});
+
+test("main does not reach browser startup when explicit browser-cookie import returns none", async () => {
+  let prepareExtensionsCalls = 0;
+  let launchCalls = 0;
+
+  await assert.rejects(
+    main(
+      [
+        "node",
+        "dist/main.js",
+        "--cookies-from-browser",
+        "chrome",
+        "--cookie-url",
+        "https://x.com",
+      ],
+      {
+        loadCookies: async () => [cookie({ name: "disk", value: "1" })],
+        readChromeCookies: async () => [],
+        prepareExtensions: async () => {
+          prepareExtensionsCalls += 1;
+          return [];
+        },
+        launchPersistentContext: async () => {
+          launchCalls += 1;
+          throw new Error("launch should not be called");
+        },
+      },
+    ),
+    /No cookies found for https:\/\/x\.com/,
+  );
+
+  assert.equal(prepareExtensionsCalls, 0);
+  assert.equal(launchCalls, 0);
 });
 
 function cookie(overrides: Partial<Cookie>): Cookie {
