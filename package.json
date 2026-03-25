@@ -4,7 +4,8 @@
   "description": "Browser runner with extension and cookie support",
   "scripts": {
     "build": "tsc",
-    "start": "tsc && node dist/main.js"
+    "start": "tsc && node dist/main.js",
+    "test": "tsc && node --test dist/*.test.js"
   },
   "dependencies": {
     "playwright": "^1.40.0"

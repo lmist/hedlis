@@ -1,6 +1,6 @@
 # opencli-sidecar
 
-Launches Chrome with browser extensions and cookies pre-loaded. Runs until you kill it.
+Launches Playwright's bundled Chromium with browser extensions and cookies pre-loaded. Runs until you kill it.
 
 ## Setup
 
@@ -11,17 +11,20 @@ npx playwright install chromium
 
 ## Usage
 
-```
+``` 
 npm start
+npm start -- --headless
 ```
 
 ### Extensions
 
-Drop `.zip` files into `extensions/`. Each zip should contain a Chrome extension (with `manifest.json` at root or one level deep). They get unzipped to a temp dir and loaded into Chrome on launch.
+Drop `.zip` files into `extensions/`. Each zip should contain a Chrome extension (with `manifest.json` at root or one level deep). They get unzipped to a temp dir and loaded into Chromium on launch.
 
 ### Cookies
 
-Drop `.json` files into `cookies/` — one file per site, or however you want to organize them. Each file is an array of cookies in Playwright format:
+Drop `.json` files into `cookies/` — one file per site, or however you want to organize them. The loader accepts both Playwright cookie JSON and common browser-export JSON, and normalizes browser-export fields automatically.
+
+Playwright-format example:
 
 ```json
 [
