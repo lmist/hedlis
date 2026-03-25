@@ -11,9 +11,11 @@ npx playwright install chromium
 
 ## Usage
 
+Run the Hedlis CLI from this repo with `npm start -- ...` after building, or call the compiled entrypoint directly with `node dist/main.js ...`.
+
 ```bash
-hedlis
-hedlis --headless
+npm start -- --headless
+node dist/main.js --headless
 ```
 
 ### Extensions
@@ -50,15 +52,15 @@ Browser-cookie access is always explicit. Hedlis only reads cookies from Chrome 
 Import cookies from a Chrome profile into `cookies/`:
 
 ```bash
-hedlis import-cookies --browser chrome --url https://example.com
-hedlis import-cookies --browser chrome --url https://example.com --chrome-profile "Profile 2"
+npm start -- import-cookies --browser chrome --url https://example.com
+node dist/main.js import-cookies --browser chrome --url https://example.com --chrome-profile "Profile 2"
 ```
 
 Load Chrome cookies at runtime for a single launch:
 
 ```bash
-hedlis --cookies-from-browser chrome --cookie-url https://example.com
-hedlis --cookies-from-browser chrome --cookie-url https://example.com --chrome-profile "Profile 2"
+npm start -- --cookies-from-browser chrome --cookie-url https://example.com
+node dist/main.js --cookies-from-browser chrome --cookie-url https://example.com --chrome-profile "Profile 2"
 ```
 
 Use `--chrome-profile` when you want a specific Chrome profile. For persisted cookies, a closed Chrome instance is preferred because it usually leaves the freshest on-disk cookie state available.
