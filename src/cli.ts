@@ -28,19 +28,23 @@ function parseChromeBrowser(value: string): "chrome" {
   return "chrome";
 }
 
-function silenceCommanderOutput(command: Command): Command {
+function parseUrl(value: string): string {
+  try {
+    new URL(value);
+    return value;
+  } catch {
+    throw new Error(`invalid URL: ${value}`);
+  }
+}
+
+function silenceCommanderStderr(command: Command): Command {
   return command.configureOutput({
     writeErr: () => undefined,
-    writeOut: () => undefined,
   });
 }
 
-function isHelpRequested(argv: string[]): boolean {
-  return argv.includes("--help") || argv.includes("-h");
-}
-
 function buildRunModeProgram() {
-  const program = silenceCommanderOutput(new Command());
+  const program = silenceCommanderStderr(new Command());
 
   program
     .exitOverride()
@@ -48,14 +52,14 @@ function buildRunModeProgram() {
     .allowExcessArguments(false)
     .option("--headless", "run headless")
     .option("--cookies-from-browser <browser>", "load cookies from a browser", parseChromeBrowser)
-    .option("--cookie-url <url>", "site URL to scope browser cookies")
+    .option("--cookie-url <url>", "site URL to scope browser cookies", parseUrl)
     .option("--chrome-profile <profile>", "Chrome profile name");
 
   return program;
 }
 
 function buildImportCookiesProgram() {
-  const program = silenceCommanderOutput(new Command());
+  const program = silenceCommanderStderr(new Command());
 
   program
     .exitOverride()
@@ -63,11 +67,11 @@ function buildImportCookiesProgram() {
     .allowExcessArguments(false)
     .name("hedlis");
 
-  const importCommand = silenceCommanderOutput(program.command("import-cookies"));
+  const importCommand = silenceCommanderStderr(program.command("import-cookies"));
 
   importCommand
     .requiredOption("--browser <browser>", "browser to import cookies from", parseChromeBrowser)
-    .requiredOption("--url <url>", "site URL to scope browser cookies")
+    .requiredOption("--url <url>", "site URL to scope browser cookies", parseUrl)
     .option("--chrome-profile <profile>", "Chrome profile name")
     .option("--output <output>", "output file path");
 
@@ -147,17 +151,19 @@ export function parseCli(argv: string[]): CliConfig {
 }
 
 export function isHeadlessEnabled(argv: string[]): boolean {
-  if (isHelpRequested(argv)) {
-    if (argv.slice(2)[0] === "import-cookies") {
-      const { importCommand } = buildImportCookiesProgram();
-      process.stdout.write(importCommand.helpInformation());
-    } else {
-      process.stdout.write(buildRunModeProgram().helpInformation());
+  try {
+    const parsed = parseCli(argv);
+    return parsed.mode === "run" ? parsed.headless : false;
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error as { code?: string }).code === "commander.helpDisplayed"
+    ) {
+      process.exit(0);
     }
 
-    process.exit(0);
+    throw error;
   }
-
-  const parsed = parseCli(argv);
-  return parsed.mode === "run" ? parsed.headless : false;
 }

@@ -61,6 +61,19 @@ test("parseCli rejects --cookie-url without --cookies-from-browser", () => {
   );
 });
 
+test("parseCli rejects --cookie-url with a help token as its value", () => {
+  assert.throws(
+    () =>
+      parseCli([
+        "node",
+        "dist/main.js",
+        "--cookie-url",
+        "--help",
+      ]),
+    /invalid url|invalid/i,
+  );
+});
+
 test("parseCli rejects --chrome-profile without --cookies-from-browser", () => {
   assert.throws(
     () =>
@@ -192,6 +205,22 @@ test("parseCli requires --url for import-cookies", () => {
         "chrome",
       ]),
     /url/i,
+  );
+});
+
+test("parseCli rejects --url with a help token as its value", () => {
+  assert.throws(
+    () =>
+      parseCli([
+        "node",
+        "dist/main.js",
+        "import-cookies",
+        "--browser",
+        "chrome",
+        "--url",
+        "--help",
+      ]),
+    /invalid url|invalid/i,
   );
 });
 
