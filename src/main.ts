@@ -4,9 +4,22 @@ import os from "node:os";
 import fs from "node:fs";
 import { prepareExtensions } from "./extension.js";
 import { loadCookies } from "./cookies.js";
-import { isHeadlessEnabled } from "./cli.js";
+import { isHeadlessEnabled, parseCli } from "./cli.js";
+import { importCookiesCommand } from "./import-cookies.js";
 
 async function main() {
+  const cli = parseCli(process.argv);
+  if (cli.mode === "import-cookies") {
+    const result = await importCookiesCommand({
+      url: cli.url,
+      profile: cli.profile,
+      output: cli.output,
+      outputRoot: process.cwd(),
+    });
+    console.log(`Imported ${result.count} cookies to ${result.outputPath}`);
+    return;
+  }
+
   const extensionsDir = path.resolve("extensions");
   const cookiesDir = path.resolve("cookies");
   const headless = isHeadlessEnabled(process.argv);
@@ -70,6 +83,15 @@ async function main() {
 }
 
 main().catch((err) => {
+  if (
+    err &&
+    typeof err === "object" &&
+    "code" in err &&
+    (err as { code?: string }).code === "commander.helpDisplayed"
+  ) {
+    process.exit(0);
+  }
+
   console.error(err);
   process.exit(1);
 });
