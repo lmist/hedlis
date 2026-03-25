@@ -50,8 +50,12 @@ function addImportCookiesCommand(program: Command): Command {
   const importCommand = silenceCommanderStderr(program.command("import-cookies"));
 
   importCommand
-    .requiredOption("--browser <browser>", "browser to import cookies from", parseChromeBrowser)
-    .requiredOption("--url <url>", "site URL to scope browser cookies", parseUrl)
+    .requiredOption(
+      "--browser <browser>",
+      "browser to import cookies from (chrome only)",
+      parseChromeBrowser
+    )
+    .requiredOption("--url <url>", "HTTP(S) site URL to scope Chrome cookies", parseUrl)
     .option("--chrome-profile <profile>", "Chrome profile name")
     .option("--output <output>", "output file path");
 
@@ -67,8 +71,8 @@ function buildRunModeProgram() {
     .allowExcessArguments(false)
     .name("hedlis")
     .option("--headless", "run headless")
-    .option("--cookies-from-browser <browser>", "load cookies from a browser", parseChromeBrowser)
-    .option("--cookie-url <url>", "site URL to scope browser cookies", parseUrl)
+    .option("--cookies-from-browser <browser>", "load cookies from Chrome", parseChromeBrowser)
+    .option("--cookie-url <url>", "HTTP(S) site URL to scope Chrome cookies", parseUrl)
     .option("--chrome-profile <profile>", "Chrome profile name");
 
   program.addHelpText(
