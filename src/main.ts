@@ -3,12 +3,45 @@ import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import { prepareExtensions } from "./extension.js";
-import { loadCookies } from "./cookies.js";
-import { isHeadlessEnabled, parseCli } from "./cli.js";
+import { loadCookies, mergeCookies, type Cookie } from "./cookies.js";
+import { parseCli, type RunModeConfig } from "./cli.js";
 import { importCookiesCommand } from "./import-cookies.js";
+import { readChromeCookies } from "./chrome-cookies.js";
 
-async function main() {
-  const cli = parseCli(process.argv);
+type ResolveStartupCookiesDependencies = {
+  cookiesDir?: string;
+  loadCookies?: typeof loadCookies;
+  readChromeCookies?: typeof readChromeCookies;
+};
+
+export async function resolveStartupCookies(
+  cli: RunModeConfig,
+  dependencies: ResolveStartupCookiesDependencies = {}
+): Promise<Cookie[]> {
+  const cookiesDir = dependencies.cookiesDir ?? path.resolve("cookies");
+  const loadCookiesFn = dependencies.loadCookies ?? loadCookies;
+  const diskCookies = await loadCookiesFn(cookiesDir);
+
+  if (!cli.browserCookies) {
+    return diskCookies;
+  }
+
+  const readChromeCookiesFn =
+    dependencies.readChromeCookies ?? readChromeCookies;
+  const browserCookies = await readChromeCookiesFn({
+    url: cli.browserCookies.url,
+    profile: cli.browserCookies.profile,
+  });
+
+  if (browserCookies.length === 0) {
+    throw new Error(`No cookies found for ${cli.browserCookies.url}`);
+  }
+
+  return mergeCookies(diskCookies, browserCookies);
+}
+
+export async function main(argv: string[] = process.argv) {
+  const cli = parseCli(argv);
   if (cli.mode === "import-cookies") {
     const result = await importCookiesCommand({
       url: cli.url,
@@ -22,7 +55,6 @@ async function main() {
 
   const extensionsDir = path.resolve("extensions");
   const cookiesDir = path.resolve("cookies");
-  const headless = isHeadlessEnabled(process.argv);
 
   // Prepare extensions from zips
   const extensionPaths = await prepareExtensions(extensionsDir);
@@ -50,13 +82,13 @@ async function main() {
 
   // Chrome ignores the side-load flags; Playwright's bundled Chromium does not.
   const context = await chromium.launchPersistentContext(userDataDir, {
-    headless,
+    headless: cli.headless,
     channel: "chromium",
     args,
   });
 
   // Inject cookies
-  const cookies = await loadCookies(cookiesDir);
+  const cookies = await resolveStartupCookies(cli, { cookiesDir });
   if (cookies.length > 0) {
     await context.addCookies(cookies);
     console.log(`Injected ${cookies.length} cookies`);
@@ -82,16 +114,18 @@ async function main() {
   await context.close().catch(() => {});
 }
 
-main().catch((err) => {
-  if (
-    err &&
-    typeof err === "object" &&
-    "code" in err &&
-    (err as { code?: string }).code === "commander.helpDisplayed"
-  ) {
-    process.exit(0);
-  }
+if (require.main === module) {
+  main().catch((err) => {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code?: string }).code === "commander.helpDisplayed"
+    ) {
+      process.exit(0);
+    }
 
-  console.error(err);
-  process.exit(1);
-});
+    console.error(err);
+    process.exit(1);
+  });
+}

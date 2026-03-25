@@ -76,6 +76,27 @@ export function normalizeCookie(raw: Cookie | BrowserExportCookie): Cookie {
   return cookie;
 }
 
+function cookieIdentity(cookie: Cookie): string {
+  return `${cookie.name}\u0000${cookie.domain}\u0000${cookie.path}`;
+}
+
+export function mergeCookies(
+  diskCookies: Cookie[],
+  browserCookies: Cookie[]
+): Cookie[] {
+  const merged = new Map<string, Cookie>();
+
+  for (const cookie of diskCookies) {
+    merged.set(cookieIdentity(cookie), cookie);
+  }
+
+  for (const cookie of browserCookies) {
+    merged.set(cookieIdentity(cookie), cookie);
+  }
+
+  return [...merged.values()];
+}
+
 export async function loadCookies(cookiesDir: string): Promise<Cookie[]> {
   if (!fs.existsSync(cookiesDir)) {
     console.log("No cookies/ directory found");
