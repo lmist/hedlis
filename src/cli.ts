@@ -34,6 +34,7 @@ function parseRunMode(argv: string[]): RunModeConfig {
   program
     .exitOverride()
     .allowUnknownOption(false)
+    .allowExcessArguments(false)
     .option("--headless", "run headless")
     .option("--cookies-from-browser <browser>", "load cookies from a browser", parseChromeBrowser)
     .option("--cookie-url <url>", "site URL to scope browser cookies")
@@ -76,6 +77,7 @@ function parseImportCookiesMode(argv: string[]): ImportCookiesConfig {
   program
     .exitOverride()
     .allowUnknownOption(false)
+    .allowExcessArguments(false)
     .name("hedlis")
     .command("import-cookies")
     .requiredOption("--browser <browser>", "browser to import cookies from", parseChromeBrowser)
@@ -107,7 +109,7 @@ function parseImportCookiesMode(argv: string[]): ImportCookiesConfig {
 }
 
 export function parseCli(argv: string[]): CliConfig {
-  if (argv.includes("import-cookies")) {
+  if (argv.slice(2)[0] === "import-cookies") {
     return parseImportCookiesMode(argv);
   }
 

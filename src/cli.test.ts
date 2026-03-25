@@ -152,3 +152,43 @@ test("isHeadlessEnabled validates import-cookies invocations through parseCli", 
     /required option/i,
   );
 });
+
+test("parseCli keeps import-cookies as an option value in run mode", () => {
+  assert.deepEqual(
+    parseCli([
+      "node",
+      "dist/main.js",
+      "--chrome-profile",
+      "import-cookies",
+      "--headless",
+    ]),
+    {
+      mode: "run",
+      headless: true,
+    },
+  );
+});
+
+test("parseCli rejects stray positional operands in run mode", () => {
+  assert.throws(
+    () => parseCli(["node", "dist/main.js", "foo"]),
+    /too many arguments/i,
+  );
+});
+
+test("parseCli rejects excess operands in import-cookies mode", () => {
+  assert.throws(
+    () =>
+      parseCli([
+        "node",
+        "dist/main.js",
+        "import-cookies",
+        "foo",
+        "--browser",
+        "chrome",
+        "--url",
+        "https://x.com",
+      ]),
+    /too many arguments/i,
+  );
+});
