@@ -74,6 +74,21 @@ test("parseCli rejects --cookie-url with a help token as its value", () => {
   );
 });
 
+test("parseCli rejects non-http browser-cookie URLs", () => {
+  assert.throws(
+    () =>
+      parseCli([
+        "node",
+        "dist/main.js",
+        "--cookies-from-browser",
+        "chrome",
+        "--cookie-url",
+        "file:///tmp/cookies.txt",
+      ]),
+    /invalid url/i,
+  );
+});
+
 test("parseCli rejects --chrome-profile without --cookies-from-browser", () => {
   assert.throws(
     () =>
@@ -224,6 +239,22 @@ test("parseCli rejects --url with a help token as its value", () => {
   );
 });
 
+test("parseCli rejects non-http import URLs", () => {
+  assert.throws(
+    () =>
+      parseCli([
+        "node",
+        "dist/main.js",
+        "import-cookies",
+        "--browser",
+        "chrome",
+        "--url",
+        "chrome://settings",
+      ]),
+    /invalid url/i,
+  );
+});
+
 test("isHeadlessEnabled returns false for valid import-cookies invocations", () => {
   assert.equal(
     isHeadlessEnabled([
@@ -290,6 +321,7 @@ test("node dist/main.js --help exits cleanly with usage output", () => {
   });
 
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /Usage:/i);
+  assert.match(result.stdout, /Usage: hedlis/i);
+  assert.match(result.stdout, /import-cookies/);
   assert.equal(result.stderr, "");
 });

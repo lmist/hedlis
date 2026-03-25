@@ -43,9 +43,8 @@ function normalizeChromeCookie(raw: ChromePuppeteerCookie): Cookie {
     sameSite: raw.sameSite,
   } as Parameters<typeof normalizeCookie>[0] & { expires?: number };
 
-  const expires = chromiumTimestampToUnixSeconds(raw.expires);
-  if (expires > 0) {
-    normalized.expires = expires;
+  if (raw.expires !== 0) {
+    normalized.expires = chromiumTimestampToUnixSeconds(raw.expires);
   }
 
   return normalizeCookie(normalized);

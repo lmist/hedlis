@@ -30,7 +30,10 @@ function parseChromeBrowser(value: string): "chrome" {
 
 function parseUrl(value: string): string {
   try {
-    new URL(value);
+    const parsed = new URL(value);
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw new Error(`invalid site URL: ${value}`);
+    }
     return value;
   } catch {
     throw new Error(`invalid URL: ${value}`);
@@ -43,6 +46,18 @@ function silenceCommanderStderr(command: Command): Command {
   });
 }
 
+function addImportCookiesCommand(program: Command): Command {
+  const importCommand = silenceCommanderStderr(program.command("import-cookies"));
+
+  importCommand
+    .requiredOption("--browser <browser>", "browser to import cookies from", parseChromeBrowser)
+    .requiredOption("--url <url>", "site URL to scope browser cookies", parseUrl)
+    .option("--chrome-profile <profile>", "Chrome profile name")
+    .option("--output <output>", "output file path");
+
+  return importCommand;
+}
+
 function buildRunModeProgram() {
   const program = silenceCommanderStderr(new Command());
 
@@ -50,10 +65,16 @@ function buildRunModeProgram() {
     .exitOverride()
     .allowUnknownOption(false)
     .allowExcessArguments(false)
+    .name("hedlis")
     .option("--headless", "run headless")
     .option("--cookies-from-browser <browser>", "load cookies from a browser", parseChromeBrowser)
     .option("--cookie-url <url>", "site URL to scope browser cookies", parseUrl)
     .option("--chrome-profile <profile>", "Chrome profile name");
+
+  program.addHelpText(
+    "after",
+    "\nCommands:\n  import-cookies  import cookies from Chrome into cookies/"
+  );
 
   return program;
 }
@@ -67,13 +88,7 @@ function buildImportCookiesProgram() {
     .allowExcessArguments(false)
     .name("hedlis");
 
-  const importCommand = silenceCommanderStderr(program.command("import-cookies"));
-
-  importCommand
-    .requiredOption("--browser <browser>", "browser to import cookies from", parseChromeBrowser)
-    .requiredOption("--url <url>", "site URL to scope browser cookies", parseUrl)
-    .option("--chrome-profile <profile>", "Chrome profile name")
-    .option("--output <output>", "output file path");
+  const importCommand = addImportCookiesCommand(program);
 
   return { program, importCommand };
 }

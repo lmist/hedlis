@@ -33,7 +33,7 @@ test("readChromeCookies passes the Chrome profile through to the injected reader
   assert.deepEqual(calls, [["https://x.com", "puppeteer", "Profile 2"]]);
 });
 
-test("readChromeCookies normalizes persistent and session puppeteer cookies", async () => {
+test("readChromeCookies normalizes persistent, expired, and session puppeteer cookies", async () => {
   const cookies = await readChromeCookies(
     { url: "https://x.com" },
     async () => [
@@ -45,6 +45,13 @@ test("readChromeCookies normalizes persistent and session puppeteer cookies", as
         expires: 11644473602500000,
         HttpOnly: true,
         Secure: true,
+      },
+      {
+        name: "expired",
+        value: "ghi789",
+        domain: ".x.com",
+        path: "/",
+        expires: 11644473599000000,
       },
       {
         name: "csrftoken",
@@ -66,6 +73,13 @@ test("readChromeCookies normalizes persistent and session puppeteer cookies", as
       expires: 2,
       httpOnly: true,
       secure: true,
+    },
+    {
+      name: "expired",
+      value: "ghi789",
+      domain: ".x.com",
+      path: "/",
+      expires: -1,
     },
     {
       name: "csrftoken",
