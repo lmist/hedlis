@@ -9,6 +9,7 @@ test("package metadata exposes the hedlis binary", () => {
   ) as {
     name?: string;
     bin?: Record<string, string>;
+    scripts?: Record<string, string>;
     dependencies?: Record<string, string>;
   };
 
@@ -16,6 +17,7 @@ test("package metadata exposes the hedlis binary", () => {
   assert.deepEqual(packageJson.bin, {
     hedlis: "dist/main.js",
   });
+  assert.equal(packageJson.scripts?.prepare, "npm run build");
   assert.ok(packageJson.dependencies?.patchright);
 });
 
