@@ -13,6 +13,7 @@
   "dependencies": {
     "chrome-cookies-secure": "^3.0.1",
     "commander": "^12.1.0",
+    "patchright": "^1.58.2",
     "playwright": "^1.40.0"
   },
   "devDependencies": {

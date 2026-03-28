@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { chromium } from "playwright";
+import { chromium as playwrightChromium } from "playwright";
+import { chromium as patchrightChromium } from "patchright";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
@@ -11,6 +12,13 @@ import {
   CHROME_COOKIE_LIMITATION_WARNING,
   readChromeCookies,
 } from "./chrome-cookies.js";
+import {
+  configFilePath,
+  readConfig,
+  resolveEngine,
+  writeConfig,
+  type BrowserEngine,
+} from "./config.js";
 
 type ResolveStartupCookiesDependencies = {
   cookiesDir?: string;
@@ -26,16 +34,31 @@ type StartupContext = {
   close(): Promise<void>;
 };
 
+type LaunchOptions = {
+  headless: boolean;
+  args: string[];
+  channel?: "chromium";
+  executablePath?: string;
+};
+
 type MainDependencies = ResolveStartupCookiesDependencies & {
   prepareExtensions?: typeof prepareExtensions;
   launchPersistentContext?: (
     userDataDir: string,
-    options: {
-      headless: boolean;
-      channel: "chromium";
-      args: string[];
-    }
+    options: LaunchOptions
   ) => Promise<StartupContext>;
+  playwrightLaunchPersistentContext?: (
+    userDataDir: string,
+    options: LaunchOptions
+  ) => Promise<StartupContext>;
+  patchrightLaunchPersistentContext?: (
+    userDataDir: string,
+    options: LaunchOptions
+  ) => Promise<StartupContext>;
+  patchrightExecutablePath?: () => string;
+  configPath?: string;
+  readConfig?: typeof readConfig;
+  writeConfig?: typeof writeConfig;
   makeTempDir?: (prefix: string) => string;
   makeDir?: (path: string, options: { recursive: true }) => void;
   writeFile?: (path: string, data: string) => void;
@@ -75,6 +98,32 @@ export async function main(
   dependencies: MainDependencies = {}
 ) {
   const cli = parseCli(argv);
+  const resolvedConfigPath = dependencies.configPath ?? configFilePath();
+
+  if (cli.mode === "config-path") {
+    console.log(resolvedConfigPath);
+    return;
+  }
+
+  if (cli.mode === "config-get") {
+    const readConfigFn = dependencies.readConfig ?? readConfig;
+    const config = readConfigFn(resolvedConfigPath);
+    console.log(resolveEngine({ config }));
+    return;
+  }
+
+  if (cli.mode === "config-set") {
+    const readConfigFn = dependencies.readConfig ?? readConfig;
+    const writeConfigFn = dependencies.writeConfig ?? writeConfig;
+    const config = readConfigFn(resolvedConfigPath);
+    writeConfigFn(resolvedConfigPath, {
+      ...config,
+      engine: cli.value,
+    });
+    console.log(`Set engine to ${cli.value} in ${resolvedConfigPath}`);
+    return;
+  }
+
   if (cli.mode === "import-cookies") {
     const result = await importCookiesCommand({
       url: cli.url,
@@ -95,9 +144,16 @@ export async function main(
   });
   const prepareExtensionsFn =
     dependencies.prepareExtensions ?? prepareExtensions;
-  const launchPersistentContext =
-    dependencies.launchPersistentContext ??
-    chromium.launchPersistentContext.bind(chromium);
+  const readConfigFn = dependencies.readConfig ?? readConfig;
+  const config = readConfigFn(resolvedConfigPath);
+  const engine = resolveEngine({
+    cliEngine: cli.engine,
+    config,
+  });
+  const launchPersistentContext = selectLaunchPersistentContext(
+    engine,
+    dependencies
+  );
   const makeTempDir = dependencies.makeTempDir ?? fs.mkdtempSync;
   const makeDir = dependencies.makeDir ?? fs.mkdirSync;
   const writeFile = dependencies.writeFile ?? fs.writeFileSync;
@@ -126,12 +182,8 @@ export async function main(
     })
   );
 
-  // Chrome ignores the side-load flags; Playwright's bundled Chromium does not.
-  const context = await launchPersistentContext(userDataDir, {
-    headless: cli.headless,
-    channel: "chromium",
-    args,
-  });
+  const launchOptions = buildLaunchOptions(engine, cli.headless, args, dependencies);
+  const context = await launchPersistentContext(userDataDir, launchOptions);
 
   // Inject cookies
   if (cookies.length > 0) {
@@ -185,6 +237,50 @@ export async function main(
   }
 
   await context.close().catch(() => {});
+}
+
+function selectLaunchPersistentContext(
+  engine: BrowserEngine,
+  dependencies: MainDependencies
+) {
+  if (engine === "patchright") {
+    return (
+      dependencies.patchrightLaunchPersistentContext ??
+      dependencies.launchPersistentContext ??
+      patchrightChromium.launchPersistentContext.bind(patchrightChromium)
+    );
+  }
+
+  return (
+    dependencies.playwrightLaunchPersistentContext ??
+    dependencies.launchPersistentContext ??
+    playwrightChromium.launchPersistentContext.bind(playwrightChromium)
+  );
+}
+
+function buildLaunchOptions(
+  engine: BrowserEngine,
+  headless: boolean,
+  args: string[],
+  dependencies: MainDependencies
+): LaunchOptions {
+  if (engine === "patchright") {
+    const executablePath =
+      dependencies.patchrightExecutablePath ??
+      patchrightChromium.executablePath.bind(patchrightChromium);
+
+    return {
+      headless,
+      executablePath: executablePath(),
+      args,
+    };
+  }
+
+  return {
+    headless,
+    channel: "chromium",
+    args,
+  };
 }
 
 if (require.main === module) {

@@ -29,6 +29,8 @@ test("parseCli parses runtime browser-cookie config", () => {
     parseCli([
       "node",
       "dist/main.js",
+      "--engine",
+      "patchright",
       "--cookies-from-browser",
       "chrome",
       "--cookie-url",
@@ -39,6 +41,7 @@ test("parseCli parses runtime browser-cookie config", () => {
     {
       mode: "run",
       headless: false,
+      engine: "patchright",
       browserCookies: {
         browser: "chrome",
         url: "https://x.com",
@@ -102,6 +105,24 @@ test("parseCli rejects --chrome-profile without --cookies-from-browser", () => {
   );
 });
 
+test("parseCli accepts an explicit playwright engine selection", () => {
+  assert.deepEqual(
+    parseCli(["node", "dist/main.js", "--engine", "playwright"]),
+    {
+      mode: "run",
+      headless: false,
+      engine: "playwright",
+    },
+  );
+});
+
+test("parseCli rejects unsupported engine values", () => {
+  assert.throws(
+    () => parseCli(["node", "dist/main.js", "--engine", "selenium"]),
+    /unsupported engine/i,
+  );
+});
+
 test("parseCli parses import-cookies mode", () => {
   assert.deepEqual(
     parseCli([
@@ -121,6 +142,36 @@ test("parseCli parses import-cookies mode", () => {
   );
 });
 
+test("parseCli parses config get engine mode", () => {
+  assert.deepEqual(
+    parseCli(["node", "dist/main.js", "config", "get", "engine"]),
+    {
+      mode: "config-get",
+      key: "engine",
+    },
+  );
+});
+
+test("parseCli parses config set engine mode", () => {
+  assert.deepEqual(
+    parseCli(["node", "dist/main.js", "config", "set", "engine", "patchright"]),
+    {
+      mode: "config-set",
+      key: "engine",
+      value: "patchright",
+    },
+  );
+});
+
+test("parseCli parses config path mode", () => {
+  assert.deepEqual(
+    parseCli(["node", "dist/main.js", "config", "path"]),
+    {
+      mode: "config-path",
+    },
+  );
+});
+
 test("parseCli rejects unsupported browser values for import-cookies", () => {
   assert.throws(
     () =>
@@ -134,6 +185,21 @@ test("parseCli rejects unsupported browser values for import-cookies", () => {
         "https://x.com",
       ]),
     /unsupported browser/i,
+  );
+});
+
+test("parseCli rejects unsupported engine values for config set", () => {
+  assert.throws(
+    () =>
+      parseCli([
+        "node",
+        "dist/main.js",
+        "config",
+        "set",
+        "engine",
+        "selenium",
+      ]),
+    /unsupported engine/i,
   );
 });
 
