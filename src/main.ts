@@ -19,6 +19,7 @@ import {
   writeConfig,
   type BrowserEngine,
 } from "./config.js";
+import { listChromeProfiles } from "./chrome-profiles.js";
 
 type ResolveStartupCookiesDependencies = {
   cookiesDir?: string;
@@ -121,6 +122,19 @@ export async function main(
       engine: cli.value,
     });
     console.log(`Set engine to ${cli.value} in ${resolvedConfigPath}`);
+    return;
+  }
+
+  if (cli.mode === "list-profiles") {
+    const profiles = listChromeProfiles();
+    if (profiles.length === 0) {
+      console.log("No Chrome profiles found.");
+    } else {
+      for (const p of profiles) {
+        const label = p.accountName ?? p.name;
+        console.log(`${p.directory}: ${label}`);
+      }
+    }
     return;
   }
 

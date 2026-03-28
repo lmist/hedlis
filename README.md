@@ -2,132 +2,117 @@
 
 `hedlis` launches a persistent browser with your extension and cookies already loaded.
 
-It supports two engines:
-- `playwright` for the default Playwright + Chromium path
-- `patchright` for the Patchright path
+## Setup
 
-## Install
+Run the setup script to install everything:
 
-`hedlis` is not published on npm yet. Install it globally from GitHub:
+```bash
+./setup.sh
+```
+
+This installs dependencies, builds, installs Chromium for both engines, downloads the [OpenCLI](https://github.com/jackwener/opencli) extension, and puts `hedlis` on your path.
+
+Or install manually:
 
 ```bash
 npm install -g github:lmist/hedlis
-```
-
-Install the browser runtime you want to use:
-
-```bash
-# Default engine
 npx playwright install chromium
-
-# Patchright engine
 npx patchright install chromium
 ```
 
 ## Quick Start
 
-`hedlis` reads `extensions/` and `cookies/` from your current working directory, not from the global install location.
-
-Create a folder for a session:
-
-```text
-my-session/
-  extensions/
-    opencli-extension.zip
-  cookies/
-    x.com.json
-```
-
-Then run:
+1. Find your Chrome profile:
 
 ```bash
-cd my-session
-hedlis
+hedlis list-profiles
 ```
 
-Stop it with `Ctrl+C` or by closing the browser window.
-
-## Your First Run
-
-If you just want the default setup:
+2. Import cookies for a site:
 
 ```bash
-hedlis --headless
+hedlis import-cookies --browser chrome --url https://instagram.com --chrome-profile "Profile 7"
 ```
 
-If you want Patchright for a single run:
+3. Launch the browser:
 
 ```bash
 hedlis --engine patchright
 ```
 
-If you want Patchright to be the default:
+Stop with `Ctrl+C` or by closing the browser window. Add `--headless` to run without a visible window.
 
-```bash
-hedlis config path
-hedlis config get engine
-hedlis config set engine patchright
-```
+## How It Works
 
-Switch back any time:
+`hedlis` reads from your current working directory:
 
-```bash
-hedlis config set engine playwright
-```
-
-Config precedence is:
-- CLI flags
-- config file
-- built-in default (`playwright`)
-
-The config file path is usually:
-
-```text
-~/.config/hedlis/config.toml
-```
+- `extensions/` — Chrome extension `.zip` files, unpacked and loaded automatically
+- `cookies/` — JSON cookie files, merged and injected at startup
 
 ## Engines
 
-### Playwright
+`hedlis` supports two browser engines:
 
-This is the default. `hedlis` launches Playwright's Chromium path and loads your extension automatically.
+| Engine | What it launches | Default? |
+|---|---|---|
+| `playwright` | Playwright's bundled Chromium | Yes |
+| `patchright` | Patchright's Google Chrome for Testing | No |
 
-### Patchright
-
-`hedlis` uses Patchright's bundled **Google Chrome for Testing** executable, not your regular signed-in Google Chrome profile. That is the path currently used to keep the Patchright engine and still load the local extension automatically.
-
-Use it per run:
+Use per run:
 
 ```bash
 hedlis --engine patchright
 ```
 
-## Extensions
+Or set a persistent default:
 
-Put one or more `.zip` files in `extensions/`.
-
-Each zip must contain a Chrome extension with `manifest.json`:
-- at the zip root, or
-- one directory below the zip root
-
-Example:
-
-```text
-extensions/
-  opencli-extension.zip
+```bash
+hedlis config set engine patchright
 ```
 
-`hedlis` unpacks those zips and loads them automatically on launch.
+Config precedence: CLI flags > config file > built-in default (`playwright`).
+
+The config file lives at `~/.config/hedlis/config.toml` (or `$XDG_CONFIG_HOME/hedlis/config.toml`).
+
+## Chrome Profiles
+
+List available Chrome profiles to find the right `--chrome-profile` value:
+
+```bash
+hedlis list-profiles
+```
+
+```
+Default: Louai Misto
+Profile 5: louai misto
+Profile 7: pushrax
+```
+
+Use the directory name (left side) with `--chrome-profile`.
 
 ## Cookies
 
-There are two ways to provide cookies.
+### Import from Chrome
 
-### 1. Cookie files
+Save cookies to `cookies/` for reuse across runs:
 
-Put JSON cookie files in `cookies/`.
+```bash
+hedlis import-cookies --browser chrome --url https://x.com
+hedlis import-cookies --browser chrome --url https://x.com --chrome-profile "Profile 2"
+```
 
-Example:
+### Load at runtime only
+
+Inject cookies for a single session without saving to disk:
+
+```bash
+hedlis --cookies-from-browser chrome --cookie-url https://x.com
+hedlis --cookies-from-browser chrome --cookie-url https://x.com --chrome-profile "Profile 2"
+```
+
+### Cookie files
+
+You can also place JSON cookie files directly in `cookies/`:
 
 ```json
 [
@@ -144,47 +129,35 @@ Example:
 ]
 ```
 
-`hedlis` merges every cookie file in `cookies/` and injects the result at startup.
-
-### 2. Import from Chrome
-
-Import cookies into `cookies/`:
-
-```bash
-hedlis import-cookies --browser chrome --url https://x.com
-hedlis import-cookies --browser chrome --url https://x.com --chrome-profile "Profile 2"
-```
-
-Or load them only for the current launch:
-
-```bash
-hedlis --cookies-from-browser chrome --cookie-url https://x.com
-hedlis --cookies-from-browser chrome --cookie-url https://x.com --chrome-profile "Profile 2"
-```
-
 Notes:
-- browser-cookie access is always explicit
-- only Chrome is supported for browser-cookie import
-- a closed Chrome instance usually gives the freshest on-disk cookie state
+- Browser-cookie access is always explicit
+- Only Chrome is supported for browser-cookie import
+- A closed Chrome instance usually gives the freshest on-disk cookie state
 
 Known limitation:
 `chrome-cookies-secure` may collapse same-name cookies across different paths or subdomains before `hedlis` sees them. If imported cookies look incomplete or login still fails, that may be the cause.
 
-## Common Commands
+## Extensions
+
+Put one or more `.zip` files in `extensions/`. Each zip must contain a Chrome extension with `manifest.json` at the zip root or one directory below. `hedlis` unpacks and loads them on launch.
+
+The setup script downloads [OpenCLI](https://github.com/jackweren/opencli) automatically. To add more extensions, drop additional zips into `extensions/`.
+
+## All Commands
 
 ```bash
-hedlis --help
-hedlis --headless
-hedlis --engine patchright
-hedlis config get engine
-hedlis config set engine patchright
-hedlis import-cookies --browser chrome --url https://x.com
-hedlis --cookies-from-browser chrome --cookie-url https://x.com
+hedlis                          # launch with defaults
+hedlis --headless               # launch headless
+hedlis --engine patchright      # launch with patchright
+hedlis list-profiles            # show Chrome profiles
+hedlis import-cookies ...       # save Chrome cookies to disk
+hedlis config get engine        # show current engine
+hedlis config set engine VALUE  # set default engine
+hedlis config path              # show config file location
+hedlis --help                   # full usage
 ```
 
 ## Developer Setup
-
-If you are working on the repo itself:
 
 ```bash
 npm install
@@ -193,17 +166,10 @@ npm test
 npm start -- --headless
 ```
 
-If you want the local checkout on your shell path:
+To put the local checkout on your path:
 
 ```bash
 npm link
-hedlis --help
 ```
 
-GitHub Actions runs CI on pull requests and pushes to `main`:
-
-```bash
-npm ci
-npm test
-npm run build
-```
+CI runs `npm ci && npm test && npm run build` on pull requests and pushes to `main`.

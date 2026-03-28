@@ -35,12 +35,17 @@ export type ConfigPathMode = {
   mode: "config-path";
 };
 
+export type ListProfilesMode = {
+  mode: "list-profiles";
+};
+
 export type CliConfig =
   | RunModeConfig
   | ImportCookiesConfig
   | ConfigGetMode
   | ConfigSetMode
-  | ConfigPathMode;
+  | ConfigPathMode
+  | ListProfilesMode;
 
 function parseChromeBrowser(value: string): "chrome" {
   if (value !== "chrome") {
@@ -108,7 +113,7 @@ function buildRunModeProgram() {
 
   program.addHelpText(
     "after",
-    "\nCommands:\n  import-cookies  import cookies from Chrome into cookies/\n  config          get or set persistent CLI defaults"
+    "\nCommands:\n  import-cookies  import cookies from Chrome into cookies/\n  list-profiles   list available Chrome profiles\n  config          get or set persistent CLI defaults"
   );
 
   return program;
@@ -231,6 +236,10 @@ export function parseCli(argv: string[]): CliConfig {
 
   if (argv.slice(2)[0] === "config") {
     return parseConfigMode(argv);
+  }
+
+  if (argv.slice(2)[0] === "list-profiles") {
+    return { mode: "list-profiles" };
   }
 
   return parseRunMode(argv);

@@ -356,6 +356,15 @@ test("parseCli rejects import-cookies as a chrome profile value without browser 
   );
 });
 
+test("parseCli parses list-profiles mode", () => {
+  assert.deepEqual(
+    parseCli(["node", "dist/main.js", "list-profiles"]),
+    {
+      mode: "list-profiles",
+    },
+  );
+});
+
 test("parseCli rejects stray positional operands in run mode", () => {
   assert.throws(
     () => parseCli(["node", "dist/main.js", "foo"]),
