@@ -46,11 +46,22 @@ test("package tarball includes the bun entrypoint instead of the legacy node dis
   assert.doesNotMatch(packOutput, /dist\/main\.js/);
 });
 
-test("readme documents the bun workflow and patchright setup", () => {
+test("readme documents the current Bun workflow and CLI surface", () => {
   const readme = fs.readFileSync(path.resolve("README.md"), "utf8");
 
+  assert.match(readme, /^---$/m);
   assert.match(readme, /bun install/);
   assert.match(readme, /bun run build/);
   assert.match(readme, /bun test/);
   assert.match(readme, /bunx patchright install chromium/);
+  assert.match(readme, /https:\/\/github\.com\/Kaliiiiiiiiii-Vinyzu\/patchright\//);
+  assert.match(readme, /https:\/\/github\.com\/jackwener\/opencli/);
+  assert.match(readme, /https:\/\/github\.com\/jackwener\/opencli\/releases\/download\/v1\.5\.5\/opencli-extension\.zip/);
+  assert.match(readme, /list-profiles/);
+  assert.match(readme, /\brun\b/);
+  assert.match(readme, /--window/);
+  assert.match(readme, /--output/);
+  assert.match(readme, /~\/\.config\/hedlis/);
+  assert.match(readme, /instagram/i);
+  assert.match(readme, /youtube/i);
 });

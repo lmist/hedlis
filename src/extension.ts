@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import AdmZip from "adm-zip";
+import { defaultAppRootDir, resolveAppPaths } from "./app-paths.js";
 
 export const REQUIRED_EXTENSION_URL =
   "https://github.com/jackwener/opencli/releases/download/v1.5.5/opencli-extension.zip";
@@ -142,8 +143,14 @@ export async function prepareRequiredExtension(
   return resolveExtractedExtensionRoot(tempDir);
 }
 
-export async function installRequiredExtension(rootDir: string = process.cwd()): Promise<string> {
-  return ensureRequiredExtensionArchive(path.resolve(rootDir, "extensions"));
+export async function installRequiredExtension(
+  rootDir: string = defaultAppRootDir(),
+  dependencies: EnsureRequiredExtensionDependencies = {}
+): Promise<string> {
+  return ensureRequiredExtensionArchive(
+    resolveAppPaths(rootDir).extensionsDir,
+    dependencies
+  );
 }
 
 function normalizeZipEntryName(entryName: string): string {

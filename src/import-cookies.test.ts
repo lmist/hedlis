@@ -7,10 +7,8 @@ import { importCookiesCommand } from "./import-cookies.js";
 import type { Cookie } from "./cookies.js";
 import { CHROME_COOKIE_LIMITATION_WARNING } from "./chrome-cookies.js";
 
-function createTempOutputRoot(): string {
-  const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), "vilnius-import-"));
-  fs.mkdirSync(path.join(outputRoot, "cookies"), { recursive: true });
-  return outputRoot;
+function createTempRoot(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), "vilnius-import-"));
 }
 
 function sampleCookies(): Cookie[] {
@@ -26,36 +24,39 @@ function sampleCookies(): Cookie[] {
   ];
 }
 
-test("importCookiesCommand writes cookies/x.com.json by default", async () => {
-  const outputRoot = createTempOutputRoot();
+test("importCookiesCommand writes into the configured cookies directory by default", async () => {
+  const tempRoot = createTempRoot();
+  const cookiesDir = path.join(tempRoot, "cookies");
 
   await importCookiesCommand(
     {
       url: "https://x.com",
-      outputRoot,
+      cookiesDir,
     },
     {
       readChromeCookies: async () => sampleCookies(),
     }
   );
 
-  const outputPath = path.join(outputRoot, "cookies", "x.com.json");
+  const outputPath = path.join(cookiesDir, "x.com.json");
   assert.deepEqual(
     JSON.parse(fs.readFileSync(outputPath, "utf8")),
     sampleCookies()
   );
 });
 
-test("importCookiesCommand honors an explicit output path", async () => {
-  const outputRoot = createTempOutputRoot();
-  const outputPath = path.join(outputRoot, "exports", "custom.json");
+test("importCookiesCommand resolves an explicit relative output path from the working directory", async () => {
+  const tempRoot = createTempRoot();
+  const cookiesDir = path.join(tempRoot, "cookies");
+  const outputPath = path.join(tempRoot, "exports", "custom.json");
 
   await importCookiesCommand(
     {
       url: "https://x.com",
       profile: "Profile 2",
-      output: outputPath,
-      outputRoot,
+      output: "exports/custom.json",
+      cwd: tempRoot,
+      cookiesDir,
     },
     {
       readChromeCookies: async ({
@@ -77,14 +78,16 @@ test("importCookiesCommand honors an explicit output path", async () => {
 });
 
 test("importCookiesCommand overwrites an existing default target file", async () => {
-  const outputRoot = createTempOutputRoot();
-  const outputPath = path.join(outputRoot, "cookies", "x.com.json");
+  const tempRoot = createTempRoot();
+  const cookiesDir = path.join(tempRoot, "cookies");
+  const outputPath = path.join(cookiesDir, "x.com.json");
+  fs.mkdirSync(cookiesDir, { recursive: true });
   fs.writeFileSync(outputPath, JSON.stringify([{ stale: true }]));
 
   await importCookiesCommand(
     {
       url: "https://x.com",
-      outputRoot,
+      cookiesDir,
     },
     {
       readChromeCookies: async () => sampleCookies(),
@@ -98,13 +101,13 @@ test("importCookiesCommand overwrites an existing default target file", async ()
 });
 
 test("importCookiesCommand warns about the Chrome duplicate-cookie limitation", async () => {
-  const outputRoot = createTempOutputRoot();
+  const tempRoot = createTempRoot();
   const warnings: string[] = [];
 
   await importCookiesCommand(
     {
       url: "https://x.com",
-      outputRoot,
+      cookiesDir: path.join(tempRoot, "cookies"),
     },
     {
       readChromeCookies: async () => sampleCookies(),
@@ -116,13 +119,13 @@ test("importCookiesCommand warns about the Chrome duplicate-cookie limitation", 
 });
 
 test("importCookiesCommand fails fast when Chrome returns no cookies", async () => {
-  const outputRoot = createTempOutputRoot();
+  const tempRoot = createTempRoot();
 
   await assert.rejects(
     importCookiesCommand(
       {
         url: "https://x.com",
-        outputRoot,
+        cookiesDir: path.join(tempRoot, "cookies"),
       },
       {
         readChromeCookies: async () => [],

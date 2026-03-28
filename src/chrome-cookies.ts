@@ -1,5 +1,4 @@
 import path from "node:path";
-import { createRequire } from "node:module";
 import { normalizeCookie, type Cookie } from "./cookies.js";
 
 export const CHROME_COOKIE_LIMITATION_WARNING =
@@ -62,12 +61,7 @@ export async function readChromeCookies(
 }
 
 function loadChromeCookieReader(): ChromeCookieReader {
-  const requireFromWorkingDirectory = createRequire(
-    path.join(process.cwd(), "__hedlis__.cjs")
-  );
-  const chromeCookiesSecure = requireFromWorkingDirectory(
-    "chrome-cookies-secure"
-  ) as {
+  const chromeCookiesSecure = require("chrome-cookies-secure") as {
     getCookiesPromised?: ChromeCookieReader;
   };
 

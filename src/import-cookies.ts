@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { resolveAppPaths } from "./app-paths.js";
 import {
   CHROME_COOKIE_LIMITATION_WARNING,
   defaultCookieOutputPath,
@@ -10,7 +11,8 @@ export type ImportCookiesCommandOptions = {
   url: string;
   profile?: string;
   output?: string;
-  outputRoot?: string;
+  cwd?: string;
+  cookiesDir?: string;
 };
 
 type ReadChromeCookies = typeof readChromeCookies;
@@ -35,10 +37,11 @@ export async function importCookiesCommand(
 
   warn(CHROME_COOKIE_LIMITATION_WARNING);
 
-  const outputRoot = options.outputRoot ?? process.cwd();
+  const cookiesDir = options.cookiesDir ?? resolveAppPaths().cookiesDir;
+  const cwd = options.cwd ?? process.cwd();
   const outputPath = options.output
-    ? path.resolve(outputRoot, options.output)
-    : defaultCookieOutputPath(options.url, path.join(outputRoot, "cookies"));
+    ? path.resolve(cwd, options.output)
+    : defaultCookieOutputPath(options.url, cookiesDir);
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, JSON.stringify(cookies, null, 2));

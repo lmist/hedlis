@@ -8,6 +8,7 @@ import {
   REQUIRED_EXTENSION_URL,
   downloadRequiredExtensionArchive,
   ensureRequiredExtensionArchive,
+  installRequiredExtension,
   prepareRequiredExtension,
 } from "./extension.js";
 
@@ -88,4 +89,28 @@ test("prepareRequiredExtension extracts the required extension and returns a man
   const extensionPath = await prepareRequiredExtension(extensionsDir);
 
   assert.ok(fs.existsSync(path.join(extensionPath, "manifest.json")));
+});
+
+test("installRequiredExtension stores the archive in the configured app-home extensions directory", async () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "hedlis-extension-"));
+  const expectedArchivePath = path.join(
+    tempRoot,
+    "extensions",
+    REQUIRED_EXTENSION_ARCHIVE_NAME
+  );
+  const seenExtensionsDirs: string[] = [];
+
+  const archivePath = await installRequiredExtension(tempRoot, {
+    validateExtensionArchive: () => undefined,
+    downloadRequiredExtension: async (extensionsDir: string) => {
+      seenExtensionsDirs.push(extensionsDir);
+      fs.mkdirSync(extensionsDir, { recursive: true });
+      fs.writeFileSync(expectedArchivePath, "archive");
+      return expectedArchivePath;
+    },
+    log: () => undefined,
+  });
+
+  assert.deepEqual(seenExtensionsDirs, [path.join(tempRoot, "extensions")]);
+  assert.equal(archivePath, expectedArchivePath);
 });

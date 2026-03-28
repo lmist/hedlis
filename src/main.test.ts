@@ -5,16 +5,16 @@ import type { Cookie } from "./cookies.js";
 import { main, resolveStartupCookies } from "./main.js";
 import { CHROME_COOKIE_LIMITATION_WARNING } from "./chrome-cookies.js";
 
-test("startup defaults to headed mode", () => {
+test("startup defaults to help mode", () => {
   assert.equal(isHeadlessEnabled(["node", "dist/main.js"]), false);
 });
 
-test("startup enables headless mode with --headless", () => {
-  assert.equal(isHeadlessEnabled(["node", "dist/main.js", "--headless"]), true);
+test("startup enables headless run mode by default", () => {
+  assert.equal(isHeadlessEnabled(["node", "dist/main.js", "run"]), true);
 });
 
 test("startup defaults to no browser-cookie access when no flags are present", async () => {
-  const cli = parseRunCli(["node", "dist/main.js"]);
+  const cli = parseRunCli(["node", "dist/main.js", "run"]);
   let readChromeCookiesCalls = 0;
 
   const cookies = await resolveStartupCookies(cli, {
@@ -34,6 +34,7 @@ test("runtime browser-cookie flags are parsed and threaded into startup", async 
   const cli = parseRunCli([
     "node",
     "dist/main.js",
+    "run",
     "--cookies-from-browser",
     "chrome",
     "--cookie-url",
@@ -59,6 +60,7 @@ test("runtime browser cookies merge with loadCookies results", async () => {
   const cli = parseRunCli([
     "node",
     "dist/main.js",
+    "run",
     "--cookies-from-browser",
     "chrome",
     "--cookie-url",
@@ -81,6 +83,7 @@ test("runtime browser-cookie loading warns about the Chrome duplicate-cookie lim
   const cli = parseRunCli([
     "node",
     "dist/main.js",
+    "run",
     "--cookies-from-browser",
     "chrome",
     "--cookie-url",
@@ -102,6 +105,7 @@ test("browser-imported cookies win exact name-domain-path collisions", async () 
   const cli = parseRunCli([
     "node",
     "dist/main.js",
+    "run",
     "--cookies-from-browser",
     "chrome",
     "--cookie-url",
@@ -129,6 +133,7 @@ test("startup fails fast when browser cookies are explicitly requested but Chrom
   const cli = parseRunCli([
     "node",
     "dist/main.js",
+    "run",
     "--cookies-from-browser",
     "chrome",
     "--cookie-url",
@@ -154,6 +159,7 @@ test("main does not reach browser startup when explicit browser-cookie import re
       [
         "node",
         "dist/main.js",
+        "run",
         "--cookies-from-browser",
         "chrome",
         "--cookie-url",
@@ -179,23 +185,45 @@ test("main does not reach browser startup when explicit browser-cookie import re
   assert.equal(launchCalls, 0);
 });
 
-test("main honors an injected cookiesDir instead of resolving the working-directory cookies path", async () => {
-  const seenCookiesDirs: string[] = [];
+test("main shows help and does not launch a browser when no arguments are provided", async () => {
+  let launchCalls = 0;
 
   await main(["node", "dist/main.js"], {
-    cookiesDir: "/tmp/injected-cookies",
+    launchPersistentContext: async () => {
+      launchCalls += 1;
+      return fakeContext();
+    },
+  });
+
+  assert.equal(launchCalls, 0);
+});
+
+test("main honors injected app paths instead of resolving storage from the working directory", async () => {
+  const seenCookiesDirs: string[] = [];
+  const seenExtensionsDirs: string[] = [];
+
+  await main(["node", "dist/main.js", "run"], {
+    appPaths: {
+      rootDir: "/tmp/injected-root",
+      cookiesDir: "/tmp/injected-root/cookies",
+      extensionsDir: "/tmp/injected-root/extensions",
+    },
     loadCookies: async (cookiesDir: string) => {
       seenCookiesDirs.push(cookiesDir);
       return [];
     },
-    prepareRequiredExtension: async () => "/tmp/opencli-extension",
+    prepareRequiredExtension: async (extensionsDir: string) => {
+      seenExtensionsDirs.push(extensionsDir);
+      return "/tmp/opencli-extension";
+    },
     makeTempDir: () => "/tmp/vilnius-profile",
     makeDir: () => undefined,
     writeFile: () => undefined,
     launchPersistentContext: async () => fakeContext(),
   });
 
-  assert.deepEqual(seenCookiesDirs, ["/tmp/injected-cookies"]);
+  assert.deepEqual(seenCookiesDirs, ["/tmp/injected-root/cookies"]);
+  assert.deepEqual(seenExtensionsDirs, ["/tmp/injected-root/extensions"]);
 });
 
 test("main adds the resolved merged cookie set to the browser context on successful startup", async () => {
@@ -205,13 +233,18 @@ test("main adds the resolved merged cookie set to the browser context on success
     [
       "node",
       "dist/main.js",
+      "run",
       "--cookies-from-browser",
       "chrome",
       "--cookie-url",
       "https://x.com",
     ],
     {
-      cookiesDir: "/tmp/injected-cookies",
+      appPaths: {
+        rootDir: "/tmp/injected-root",
+        cookiesDir: "/tmp/injected-root/cookies",
+        extensionsDir: "/tmp/injected-root/extensions",
+      },
       loadCookies: async () => [cookie({ name: "disk", value: "1" })],
       readChromeCookies: async () => [
         cookie({ name: "disk", value: "2" }),
@@ -241,8 +274,12 @@ test("main uses the patchright launch contract for headless startup", async () =
     };
   }> = [];
 
-  await main(["node", "dist/main.js", "--headless"], {
-    cookiesDir: "/tmp/injected-cookies",
+  await main(["node", "dist/main.js", "run"], {
+    appPaths: {
+      rootDir: "/tmp/injected-root",
+      cookiesDir: "/tmp/injected-root/cookies",
+      extensionsDir: "/tmp/injected-root/extensions",
+    },
     loadCookies: async () => [],
     prepareRequiredExtension: async () => "/tmp/opencli-extension",
     makeTempDir: () => "/tmp/vilnius-profile",
@@ -270,12 +307,40 @@ test("main uses the patchright launch contract for headless startup", async () =
   ]);
 });
 
+test("main opens a visible browser window when run mode uses --window", async () => {
+  const launchCalls: Array<{ headless: boolean }> = [];
+
+  await main(["node", "dist/main.js", "run", "--window"], {
+    appPaths: {
+      rootDir: "/tmp/injected-root",
+      cookiesDir: "/tmp/injected-root/cookies",
+      extensionsDir: "/tmp/injected-root/extensions",
+    },
+    loadCookies: async () => [],
+    prepareRequiredExtension: async () => "/tmp/opencli-extension",
+    makeTempDir: () => "/tmp/vilnius-profile",
+    makeDir: () => undefined,
+    writeFile: () => undefined,
+    patchrightExecutablePath: () => "/tmp/google-chrome-for-testing",
+    patchrightLaunchPersistentContext: async (_userDataDir, options) => {
+      launchCalls.push({ headless: options.headless });
+      return fakeContext();
+    },
+  });
+
+  assert.deepEqual(launchCalls, [{ headless: false }]);
+});
+
 test("main fails before browser launch when required extension bootstrap fails", async () => {
   let launchCalls = 0;
 
   await assert.rejects(
-    main(["node", "dist/main.js"], {
-      cookiesDir: "/tmp/injected-cookies",
+    main(["node", "dist/main.js", "run"], {
+      appPaths: {
+        rootDir: "/tmp/injected-root",
+        cookiesDir: "/tmp/injected-root/cookies",
+        extensionsDir: "/tmp/injected-root/extensions",
+      },
       loadCookies: async () => [],
       prepareRequiredExtension: async () => {
         throw new Error("extension download failed");
@@ -302,8 +367,12 @@ test("main uses patchright by default", async () => {
     };
   }> = [];
 
-  await main(["node", "dist/main.js"], {
-    cookiesDir: "/tmp/injected-cookies",
+  await main(["node", "dist/main.js", "run"], {
+    appPaths: {
+      rootDir: "/tmp/injected-root",
+      cookiesDir: "/tmp/injected-root/cookies",
+      extensionsDir: "/tmp/injected-root/extensions",
+    },
     loadCookies: async () => [],
     prepareRequiredExtension: async () => "/tmp/opencli-extension",
     makeTempDir: () => "/tmp/vilnius-profile",
@@ -320,7 +389,7 @@ test("main uses patchright by default", async () => {
     {
       userDataDir: "/tmp/vilnius-profile",
       options: {
-        headless: false,
+        headless: true,
         executablePath: "/tmp/google-chrome-for-testing",
         args: [
           "--disable-extensions-except=/tmp/opencli-extension",
@@ -341,8 +410,12 @@ test("main preserves extension loading args for the required extension", async (
     };
   }> = [];
 
-  await main(["node", "dist/main.js"], {
-    cookiesDir: "/tmp/injected-cookies",
+  await main(["node", "dist/main.js", "run"], {
+    appPaths: {
+      rootDir: "/tmp/injected-root",
+      cookiesDir: "/tmp/injected-root/cookies",
+      extensionsDir: "/tmp/injected-root/extensions",
+    },
     loadCookies: async () => [],
     prepareRequiredExtension: async () => "/tmp/ext-a",
     makeTempDir: () => "/tmp/vilnius-profile",
@@ -358,7 +431,7 @@ test("main preserves extension loading args for the required extension", async (
   assert.deepEqual(launchCalls, [
     {
       options: {
-        headless: false,
+        headless: true,
         executablePath: "/tmp/google-chrome-for-testing",
         args: [
           "--disable-extensions-except=/tmp/ext-a",
@@ -374,8 +447,12 @@ test("main removes SIGINT and SIGTERM listeners before returning", async () => {
   const sigtermListenersBefore = process.rawListeners("SIGTERM");
 
   try {
-    await main(["node", "dist/main.js"], {
-      cookiesDir: "/tmp/injected-cookies",
+    await main(["node", "dist/main.js", "run"], {
+      appPaths: {
+        rootDir: "/tmp/injected-root",
+        cookiesDir: "/tmp/injected-root/cookies",
+        extensionsDir: "/tmp/injected-root/extensions",
+      },
       loadCookies: async () => [],
       prepareRequiredExtension: async () => "/tmp/opencli-extension",
       makeTempDir: () => "/tmp/vilnius-profile",

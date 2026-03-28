@@ -3,9 +3,10 @@ import { chromium as patchrightChromium } from "patchright";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import { resolveAppPaths, type AppPaths } from "./app-paths.js";
 import { prepareRequiredExtension } from "./extension.js";
 import { loadCookies, mergeCookies, type Cookie } from "./cookies.js";
-import { parseCli, type RunModeConfig } from "./cli.js";
+import { parseCli, rootHelpText, type RunModeConfig } from "./cli.js";
 import { importCookiesCommand } from "./import-cookies.js";
 import {
   CHROME_COOKIE_LIMITATION_WARNING,
@@ -34,6 +35,7 @@ type LaunchOptions = {
 };
 
 type MainDependencies = ResolveStartupCookiesDependencies & {
+  appPaths?: AppPaths;
   prepareRequiredExtension?: typeof prepareRequiredExtension;
   launchPersistentContext?: (
     userDataDir: string,
@@ -47,13 +49,14 @@ type MainDependencies = ResolveStartupCookiesDependencies & {
   makeTempDir?: (prefix: string) => string;
   makeDir?: (path: string, options: { recursive: true }) => void;
   writeFile?: (path: string, data: string) => void;
+  writeStdout?: (message: string) => void;
 };
 
 export async function resolveStartupCookies(
   cli: RunModeConfig,
   dependencies: ResolveStartupCookiesDependencies = {}
 ): Promise<Cookie[]> {
-  const cookiesDir = dependencies.cookiesDir ?? path.resolve("cookies");
+  const cookiesDir = dependencies.cookiesDir ?? resolveAppPaths().cookiesDir;
   const loadCookiesFn = dependencies.loadCookies ?? loadCookies;
   const diskCookies = await loadCookiesFn(cookiesDir);
 
@@ -83,6 +86,14 @@ export async function main(
   dependencies: MainDependencies = {}
 ) {
   const cli = parseCli(argv);
+  const appPaths = dependencies.appPaths ?? resolveAppPaths();
+  const writeStdout =
+    dependencies.writeStdout ?? ((message: string) => process.stdout.write(message));
+
+  if (cli.mode === "help") {
+    writeStdout(rootHelpText());
+    return;
+  }
 
   if (cli.mode === "list-profiles") {
     const profiles = listChromeProfiles();
@@ -102,13 +113,14 @@ export async function main(
       url: cli.url,
       profile: cli.profile,
       output: cli.output,
-      outputRoot: process.cwd(),
+      cwd: process.cwd(),
+      cookiesDir: appPaths.cookiesDir,
     });
     console.log(`Imported ${result.count} cookies to ${result.outputPath}`);
     return;
   }
 
-  const cookiesDir = dependencies.cookiesDir ?? path.resolve("cookies");
+  const cookiesDir = dependencies.cookiesDir ?? appPaths.cookiesDir;
   const cookies = await resolveStartupCookies(cli, {
     cookiesDir,
     loadCookies: dependencies.loadCookies,
@@ -123,7 +135,7 @@ export async function main(
   const makeTempDir = dependencies.makeTempDir ?? fs.mkdtempSync;
   const makeDir = dependencies.makeDir ?? fs.mkdirSync;
   const writeFile = dependencies.writeFile ?? fs.writeFileSync;
-  const extensionPath = await prepareExtension(path.resolve("extensions"));
+  const extensionPath = await prepareExtension(appPaths.extensionsDir);
   const args = [
     `--disable-extensions-except=${extensionPath}`,
     `--load-extension=${extensionPath}`,

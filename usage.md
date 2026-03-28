@@ -1,6 +1,6 @@
 # Usage
 
-## Install and build
+## Install
 
 ```bash
 bun install
@@ -8,21 +8,31 @@ bunx patchright install chromium
 bun run build
 ```
 
-## Import cookies and launch
+## Help
 
 ```bash
-hedlis import-cookies --browser chrome --url https://instagram.com --chrome-profile "Profile 7"
 hedlis
 ```
 
-## One-off runtime cookies
-
-```bash
-hedlis --cookies-from-browser chrome --cookie-url https://x.com
-```
-
-## List Chrome profiles
+## List profiles
 
 ```bash
 hedlis list-profiles
+```
+
+## Import cookies
+
+```bash
+hedlis import-cookies --browser chrome --url https://instagram.com --chrome-profile "Profile 1"
+hedlis import-cookies --browser chrome --url https://x.com --chrome-profile "Profile 1"
+hedlis import-cookies --browser chrome --url https://youtube.com --chrome-profile "Profile 1"
+hedlis import-cookies --browser chrome --url https://x.com --chrome-profile "Profile 1" --output ./exports/x.json
+```
+
+## Run Patchright
+
+```bash
+hedlis run
+hedlis run -w
+hedlis run --cookies-from-browser chrome --cookie-url https://x.com --chrome-profile "Profile 1"
 ```

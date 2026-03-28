@@ -1,5 +1,9 @@
 import { Command } from "commander";
 
+export type HelpMode = {
+  mode: "help";
+};
+
 export type RunModeConfig = {
   mode: "run";
   headless: boolean;
@@ -22,7 +26,11 @@ export type ListProfilesMode = {
   mode: "list-profiles";
 };
 
-export type CliConfig = RunModeConfig | ImportCookiesConfig | ListProfilesMode;
+export type CliConfig =
+  | HelpMode
+  | RunModeConfig
+  | ImportCookiesConfig
+  | ListProfilesMode;
 
 function parseChromeBrowser(value: string): "chrome" {
   if (value !== "chrome") {
@@ -50,24 +58,7 @@ function silenceCommanderStderr(command: Command): Command {
   });
 }
 
-function addImportCookiesCommand(program: Command): Command {
-  const importCommand = silenceCommanderStderr(program.command("import-cookies"));
-
-  importCommand
-    .summary("import Chrome cookies into cookies/")
-    .requiredOption(
-      "--browser <browser>",
-      "browser to import cookies from (chrome only)",
-      parseChromeBrowser
-    )
-    .requiredOption("--url <url>", "HTTP(S) site URL to scope Chrome cookies", parseUrl)
-    .option("--chrome-profile <profile>", "Chrome profile name")
-    .option("--output <output>", "output file path");
-
-  return importCommand;
-}
-
-function buildRunModeProgram() {
+function buildRootProgram() {
   const program = silenceCommanderStderr(new Command());
 
   program
@@ -76,28 +67,58 @@ function buildRunModeProgram() {
     .allowExcessArguments(false)
     .showHelpAfterError()
     .name("hedlis")
-    .description("Launch Patchright with the required OpenCLI extension and optional Chrome cookies.")
-    .usage("[options] [command]")
-    .option("--headless", "run without opening a browser window")
-    .option("--cookies-from-browser <browser>", "load cookies from Chrome for this run", parseChromeBrowser)
+    .description(
+      "OpenCLI companion built on Patchright. Use `run` to launch headless by default."
+    )
+    .usage("<command> [options]");
+
+  program.addCommand(
+    new Command("run").summary("launch Patchright headless by default")
+  );
+  program.addCommand(
+    new Command("import-cookies").summary(
+      "import Chrome cookies into ~/.config/hedlis/cookies/"
+    )
+  );
+  program.addCommand(
+    new Command("list-profiles").summary("list available Chrome profiles")
+  );
+
+  return program;
+}
+
+function buildRunProgram() {
+  const program = silenceCommanderStderr(new Command());
+
+  program
+    .exitOverride()
+    .allowUnknownOption(false)
+    .allowExcessArguments(false)
+    .showHelpAfterError()
+    .name("hedlis run")
+    .description(
+      "Launch Patchright with the pinned OpenCLI extension. Headless by default."
+    )
+    .usage("[options]")
+    .option("-w, --window", "open a visible browser window")
+    .option(
+      "--cookies-from-browser <browser>",
+      "load cookies from Chrome for this run",
+      parseChromeBrowser
+    )
     .option("--cookie-url <url>", "HTTP(S) site URL to scope Chrome cookies", parseUrl)
     .option("--chrome-profile <profile>", "Chrome profile name");
 
   program.addHelpText(
-    "after",
+    "afterAll",
     `
-Commands:
-  import-cookies  import cookies from Chrome into cookies/
-  list-profiles   list available Chrome profiles
-
 Examples:
-  hedlis --headless
-  hedlis --cookies-from-browser chrome --cookie-url https://x.com
-  hedlis import-cookies --browser chrome --url https://x.com --chrome-profile "Profile 2"
+  hedlis run
+  hedlis run -w
+  hedlis run --cookies-from-browser chrome --cookie-url https://x.com
 
-Required extension:
-  hedlis always needs extensions/opencli-extension.zip. bun install fetches it,
-  and startup re-downloads it automatically if the archive is missing or invalid.
+Storage:
+  hedlis loads saved cookies from ~/.config/hedlis/cookies/
 `
   );
 
@@ -112,19 +133,43 @@ function buildImportCookiesProgram() {
     .allowUnknownOption(false)
     .allowExcessArguments(false)
     .showHelpAfterError()
-    .name("hedlis")
-    .description("Import Chrome cookies into cookies/ for repeatable hedlis runs.");
+    .name("hedlis import-cookies")
+    .description("Import Chrome cookies into ~/.config/hedlis/cookies/.")
+    .requiredOption(
+      "--browser <browser>",
+      "browser to import cookies from (chrome only)",
+      parseChromeBrowser
+    )
+    .requiredOption("--url <url>", "HTTP(S) site URL to scope Chrome cookies", parseUrl)
+    .option("--chrome-profile <profile>", "Chrome profile name")
+    .option("--output <output>", "output file path");
 
-  const importCommand = addImportCookiesCommand(program);
+  return program;
+}
 
-  return { program, importCommand };
+function buildListProfilesProgram() {
+  const program = silenceCommanderStderr(new Command());
+
+  program
+    .exitOverride()
+    .allowUnknownOption(false)
+    .allowExcessArguments(false)
+    .showHelpAfterError()
+    .name("hedlis list-profiles")
+    .description("List available Chrome profiles.")
+    .usage("");
+
+  return program;
+}
+
+function parseRootMode(argv: string[]): never {
+  buildRootProgram().parse(argv.slice(2), { from: "user" });
+  throw new Error("root mode parsing should not return");
 }
 
 function parseRunMode(argv: string[]): RunModeConfig {
-  const program = buildRunModeProgram();
-
-  const options = program.parse(argv, { from: "node" }).opts<{
-    headless?: boolean;
+  const options = buildRunProgram().parse(argv.slice(3), { from: "user" }).opts<{
+    window?: boolean;
     cookiesFromBrowser?: "chrome";
     cookieUrl?: string;
     chromeProfile?: string;
@@ -149,26 +194,19 @@ function parseRunMode(argv: string[]): RunModeConfig {
   return browserCookies
     ? {
         mode: "run",
-        headless: Boolean(options.headless),
+        headless: !Boolean(options.window),
         browserCookies,
       }
     : {
         mode: "run",
-        headless: Boolean(options.headless),
+        headless: !Boolean(options.window),
       };
 }
 
 function parseImportCookiesMode(argv: string[]): ImportCookiesConfig {
-  const { program } = buildImportCookiesProgram();
-
-  const parsed = program.parse(argv, { from: "node" });
-  const parsedImportCommand = parsed.commands[0];
-
-  if (!parsedImportCommand) {
-    throw new Error("import-cookies command requires a subcommand");
-  }
-
-  const options = parsedImportCommand.opts<{
+  const options = buildImportCookiesProgram().parse(argv.slice(3), {
+    from: "user",
+  }).opts<{
     browser: "chrome";
     url: string;
     chromeProfile?: string;
@@ -184,20 +222,35 @@ function parseImportCookiesMode(argv: string[]): ImportCookiesConfig {
   };
 }
 
+function parseListProfilesMode(argv: string[]): ListProfilesMode {
+  buildListProfilesProgram().parse(argv.slice(3), { from: "user" });
+  return { mode: "list-profiles" };
+}
+
 export function parseCli(argv: string[]): CliConfig {
-  if (argv.slice(2)[0] === "import-cookies") {
+  const command = argv.slice(2)[0];
+
+  if (!command) {
+    return { mode: "help" };
+  }
+
+  if (command === "-h" || command === "--help") {
+    return { mode: "help" };
+  }
+
+  if (command === "run") {
+    return parseRunMode(argv);
+  }
+
+  if (command === "import-cookies") {
     return parseImportCookiesMode(argv);
   }
 
-  if (argv.slice(2)[0] === "config") {
-    throw new Error("unknown command: config");
+  if (command === "list-profiles") {
+    return parseListProfilesMode(argv);
   }
 
-  if (argv.slice(2)[0] === "list-profiles") {
-    return { mode: "list-profiles" };
-  }
-
-  return parseRunMode(argv);
+  return parseRootMode(argv);
 }
 
 export function isHeadlessEnabled(argv: string[]): boolean {
@@ -216,4 +269,17 @@ export function isHeadlessEnabled(argv: string[]): boolean {
 
     throw error;
   }
+}
+
+export function rootHelpText(): string {
+  return `${buildRootProgram().helpInformation()}
+Examples:
+  hedlis list-profiles
+  hedlis import-cookies --browser chrome --url https://instagram.com --chrome-profile "Profile 2"
+  hedlis run
+  hedlis run -w --cookies-from-browser chrome --cookie-url https://x.com
+
+Storage:
+  hedlis keeps cookies and the pinned OpenCLI extension under ~/.config/hedlis/
+`;
 }
