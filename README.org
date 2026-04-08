@@ -1,5 +1,6 @@
 #+title: cloak
 
+#+begin_src html
 <p align="center">
   <img src="docs/assets/cloak-logo.png" alt="Cloak logo" width="180" />
 </p>
@@ -22,6 +23,7 @@
     <img alt="OpenCLI companion" src="https://img.shields.io/badge/OpenCLI-companion-111827" />
   </a>
 </p>
+#+end_src 
 
 * new tool who dis
 
