@@ -1,6 +1,5 @@
 #+title: cloak
 
-#+begin_src html
 <p align="center">
   <img src="docs/assets/cloak-logo.png" alt="Cloak logo" width="180" />
 </p>
@@ -23,21 +22,20 @@
     <img alt="OpenCLI companion" src="https://img.shields.io/badge/OpenCLI-companion-111827" />
   </a>
 </p>
-#+end_src 
 
-* new tool who dis
+* What cloak is
 
 =cloak= is a companion CLI for [[https://github.com/jackwener/opencli][OpenCLI]], powered by [[https://github.com/Kaliiiiiiiiii-Vinyzu/patchright/][Patchright]], and it always loads the pinned [[https://github.com/jackwener/opencli/releases/download/v1.6.8/opencli-extension.zip][OpenCLI extension archive]].
-
-> It runs a headless browser that imports OpenCLI's extension and your choice of cookies for funsies with opencli.
 
 The job is simple:
 
 - keep the automation browser headless unless you explicitly ask for a window
-- let you copy cookies out of a throaway Chrome profile
+- let you pull cookies out of a throwaway Chrome profile only for the current run
 - give OpenCLI a clean browser context that is not your day-to-day visible browser
 
-lone
+* Install
+
+1. Clone
 
 #+begin_src bash
 git clone https://github.com/lmist/cloak.git
@@ -58,43 +56,33 @@ npm run build
 
 The OpenCLI skills are worth installing for Claude Code or Cursor. They give the agent the right language and workflows to use OpenCLI well, adapt to new requests, and build or refine adapters instead of treating every site or task as a one-off.
 
-During =npm install=, =cloak= asks for consent before creating =~/.config/cloak=. If you answer yes, it prepares:
+* Usage
 
-- =~/.config/cloak/cookies/=
-- =~/.config/cloak/extensions/=
-
-and downloads the pinned OpenCLI extension archive there so the CLI is ready to run.
-
-If install is non-interactive, =cloak= skips that bootstrap step and finishes setup later when you run it.
-
-3. =cloak profiles list=
+Browse available Chrome profiles and cookie-bearing sites:
 
 #+begin_src bash
 cloak profiles list
 #+end_src
 
-Typical output:
+In a real terminal this opens a searchable, colorized picker. In non-TTY environments it prints a plain-text report grouped by profile.
 
-#+begin_example
-Default: Personal
-Profile 1: Work
-Profile 3: Throwaway
-#+end_example
-
-4. Example: =cloak cookies import --browser chrome --url https://x.com --chrome-profile "Default"=
-
-#+begin_src bash
-cloak cookies import --browser chrome --url https://x.com --chrome-profile "Default"
-#+end_src
-
-This writes the imported cookies to =~/.config/cloak/cookies/x.com.json= by default.
-
-5. =cloak run=
+Launch a clean browser:
 
 #+begin_src bash
 cloak run
 #+end_src
 
+Launch with runtime Chrome cookies using the interactive picker:
+
+#+begin_src bash
+cloak run --cookies-from-browser chrome
+#+end_src
+
+Launch with an explicit site URL and profile:
+
+#+begin_src bash
+cloak run --cookies-from-browser chrome --cookie-url https://x.com --chrome-profile "Default"
+#+end_src
 
 If you want a visible browser window instead of headless mode:
 
@@ -112,24 +100,39 @@ make ci
 just ci
 #+end_src
 
-* opencli extension bootstrap
+* Storage
 
-=cloak= uses a package postinstall step plus a runtime repair check.
+Persistent state is limited to the pinned extension archive cache:
 
-At install time, =src/install-extension.ts= ensures the pinned OpenCLI extension archive exists at:
+- =~/.cache/cloak/opencli-extension.zip=
 
-<NOT TRUE ANYMORE>
+Runtime-only state stays ephemeral:
+
+- the extracted extension directory is created in the OS temp directory for each run
+- the Patchright user profile is created in the OS temp directory for each run
+- cookies are never written to disk by =cloak=
+
+* Extension bootstrap
+
+=cloak= uses a package postinstall warm-up plus a runtime repair check.
+
+Postinstall tries to cache the pinned extension archive at:
+
 #+begin_example
-~/.config/cloak/extensions/opencli-extension.zip
+~/.cache/cloak/opencli-extension.zip
 #+end_example
 
-At runtime, =cloak run= validates that archive again before Patchright starts. If the file is missing or invalid, it re-downloads it and only then launches the browser with:
+If that warm-up fails, =cloak run= repairs the cache automatically before Patchright starts. The browser launches with:
 
 - =--disable-extensions-except=<extracted-extension-dir>=
 - =--load-extension=<extracted-extension-dir>=
 
-* TODO cookie flow
+* Cookie flow
 
-* TODO [#B] one sharp edge
+=cloak= only reads Chrome cookies at runtime and injects them directly into the running Patchright context.
 
-chrome cookie extraction depends on =chrome-cookies-secure=, and that tool can collapse same-name cookies across different paths or subdomains before =cloak= sees them. if a login still fails after import, that is the first thing to suspect.
+When you run =cloak run --cookies-from-browser chrome= in a TTY, =cloak= can open the profile/site picker for you. When you already know the exact target, pass =--cookie-url= directly.
+
+* One sharp edge
+
+Chrome cookie extraction depends on =chrome-cookies-secure=, and that tool can collapse same-name cookies across different paths or subdomains before =cloak= sees them. If a login still fails after injection, that is the first thing to suspect.
