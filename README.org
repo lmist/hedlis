@@ -42,6 +42,8 @@ npm install -g @lmist/cloak
 cloak --help
 #+end_src
 
+The package name is =@lmist/cloak=. The installed command remains =cloak=.
+
 During =npm install=, =cloak= tries to:
 
 - warm the pinned OpenCLI extension cache
