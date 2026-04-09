@@ -7,6 +7,10 @@ function readCiWorkflow() {
   return fs.readFileSync(path.resolve(".github/workflows/ci.yml"), "utf8");
 }
 
+function readPublishWorkflow() {
+  return fs.readFileSync(path.resolve(".github/workflows/publish.yml"), "utf8");
+}
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -43,4 +47,26 @@ test("ci workflow cancels superseded runs and keeps read-only permissions", () =
   assert.match(workflow, /concurrency:/);
   assert.match(workflow, /cancel-in-progress:\s+true/);
   assert.match(workflow, /permissions:\s*\n\s+contents:\s+read/m);
+});
+
+test("publish workflow supports manual dispatch and release publishing", () => {
+  const workflow = readPublishWorkflow();
+
+  assert.match(workflow, /^on:/m);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /release:\s*\n\s+types:\s*\n\s+- published/m);
+});
+
+test("publish workflow configures npm auth and provenance publishing", () => {
+  const workflow = readPublishWorkflow();
+
+  assert.match(workflow, /uses:\s+actions\/setup-node@v5/);
+  assert.match(workflow, /registry-url:\s+https:\/\/registry\.npmjs\.org/);
+  assert.match(workflow, /id-token:\s+write/);
+  assert.match(workflow, /npm ci/);
+  assert.match(workflow, /npm test/);
+  assert.match(workflow, /npm run typecheck/);
+  assert.match(workflow, /npm run build/);
+  assert.match(workflow, /npm publish --provenance/);
+  assert.match(workflow, /NODE_AUTH_TOKEN:\s+\$\{\{\s*secrets\.NPM_TOKEN\s*\}\}/);
 });

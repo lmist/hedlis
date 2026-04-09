@@ -14,12 +14,13 @@ test("package metadata exposes the cloak binary", () => {
     bin?: Record<string, string>;
     files?: string[];
     scripts?: Record<string, string>;
+    publishConfig?: Record<string, string>;
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
     optionalDependencies?: Record<string, string>;
   };
 
-  assert.equal(packageJson.name, "cloak");
+  assert.equal(packageJson.name, "@lmist/cloak");
   assert.equal(packageJson.engines?.node, ">=20");
   assert.deepEqual(packageJson.bin, {
     cloak: "bin/cloak.js",
@@ -50,6 +51,9 @@ test("package metadata exposes the cloak binary", () => {
   assert.equal(packageJson.scripts?.prepare, undefined);
   assert.equal(packageJson.scripts?.prepack, "npm run build");
   assert.equal(packageJson.scripts?.test, "node --import tsx --test src/**/*.test.ts");
+  assert.deepEqual(packageJson.publishConfig, {
+    access: "public",
+  });
   assert.equal(
     packageJson.scripts?.typecheck,
     "node ./node_modules/typescript/bin/tsc --noEmit"
@@ -126,7 +130,7 @@ test("readme documents the current Node workflow and CLI surface", () => {
   assert.match(readme, /^\* from source$/m);
   assert.match(readme, /^\* setup and usage$/m);
   assert.match(readme, /^\* one sharp edge$/m);
-  assert.match(readme, /npm install -g cloak/);
+  assert.match(readme, /npm install -g @lmist\/cloak/);
   assert.match(readme, /git clone https:\/\/github\.com\/lmist\/cloak\.git/);
   assert.match(readme, /npm install/);
   assert.match(readme, /npx patchright install chromium/);

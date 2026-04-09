@@ -1,5 +1,5 @@
 {
-  "name": "cloak",
+  "name": "@lmist/cloak",
   "version": "1.0.0",
   "description": "Patchright runner with required OpenCLI extension and Chrome cookie support",
   "engines": {
@@ -33,6 +33,9 @@
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
     "start": "node --import tsx src/main.ts",
     "test": "node --import tsx --test src/**/*.test.ts"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",

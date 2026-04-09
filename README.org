@@ -32,28 +32,26 @@ Chrome cookie import is an optional runtime feature. The base install should sti
 
 * install
 
-Once the npm release is live, install =cloak= globally and verify the CLI:
+Install =cloak= globally and verify the CLI:
 
 #+name: install-from-npm
 #+begin_src sh
 set -euo pipefail
 
-npm install -g cloak
+npm install -g @lmist/cloak
 cloak --help
 #+end_src
 
-During =npm install=, =cloak= now tries to:
+During =npm install=, =cloak= tries to:
 
 - warm the pinned OpenCLI extension cache
 - install the Patchright Chromium browser
 
-If the browser download step ever gets skipped or fails in your environment, retry it manually:
+If the browser download step gets skipped or fails in your environment, retry it manually:
 
 #+begin_src sh
 npx patchright install chromium
 #+end_src
-
-Until the npm release is live, use the =from source= section below.
 
 If you use OpenCLI with it, install that separately:
 
