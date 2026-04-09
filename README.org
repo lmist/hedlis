@@ -12,6 +12,7 @@ By default it runs headless. If you ask for Chrome cookies, it reads them from a
 What persists:
 
 - =~/.cache/cloak/opencli-extension.zip=
+- if you opt in, persisted cookie snapshots under =~/.config/cloak/cookies/=
 
 What stays ephemeral:
 
@@ -133,6 +134,15 @@ Let =cloak= pick a Chrome site interactively and inject cookies for a single run
 #+begin_src sh
 cloak run --cookies-from-browser chrome
 #+end_src
+
+Offer to persist the imported cookies after =cloak= reads them:
+
+#+name: run-with-persisted-cookies
+#+begin_src sh
+cloak run --cookies-from-browser chrome --persist-cookies
+#+end_src
+
+If you accept the prompt, =cloak= writes the imported cookie set to =~/.config/cloak/cookies/<hostname>.json=.
 
 Use an explicit site URL and Chrome profile when you already know the target or when you are scripting it:
 

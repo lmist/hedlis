@@ -9,6 +9,7 @@ type HelpMode = {
 export type RunModeConfig = {
   mode: "run";
   headless: boolean;
+  persistCookies?: boolean;
   browserCookies?: {
     browser: "chrome";
     url?: string;
@@ -70,6 +71,7 @@ function rootEpilog(): string {
   cloak profiles list
   cloak run
   cloak run --cookies-from-browser chrome
+  cloak run --cookies-from-browser chrome --persist-cookies
   cloak run -w --cookies-from-browser chrome --cookie-url https://x.com
 
 ${formatHeading("Storage:")}
@@ -108,6 +110,7 @@ function runEpilog(): string {
   cloak run
   cloak run -w
   cloak run --cookies-from-browser chrome
+  cloak run --cookies-from-browser chrome --persist-cookies
   cloak run --cookies-from-browser chrome --cookie-url https://x.com
 
 ${formatHeading("Storage:")}
@@ -137,9 +140,18 @@ function buildRunProgram(args: string[] = []): Argv {
       type: "string",
       description: "Chrome profile name",
     })
+    .option("persist-cookies", {
+      type: "boolean",
+      description: "prompt to persist imported Chrome cookies under ~/.config/cloak/cookies/",
+    })
     .check((options: ArgumentsCamelCase<Record<string, unknown>>) => {
-      if (!options.cookiesFromBrowser && (options.cookieUrl || options.chromeProfile)) {
-        throw new Error("--cookie-url and --chrome-profile require --cookies-from-browser");
+      if (
+        !options.cookiesFromBrowser &&
+        (options.cookieUrl || options.chromeProfile || options.persistCookies)
+      ) {
+        throw new Error(
+          "--cookie-url, --chrome-profile, and --persist-cookies require --cookies-from-browser"
+        );
       }
 
       return true;
@@ -156,6 +168,7 @@ Options:
   --cookies-from-browser <browser>  load cookies from Chrome for this run
   --cookie-url <url>              HTTP(S) site URL to scope Chrome cookies
   --chrome-profile <profile>      Chrome profile name
+  --persist-cookies               prompt to persist imported Chrome cookies
 
 ${runEpilog()}`;
 }
@@ -197,6 +210,7 @@ function parseRunMode(args: string[]): CliConfig {
     cookiesFromBrowser?: "chrome";
     cookieUrl?: string;
     chromeProfile?: string;
+    persistCookies?: boolean;
   };
 
   if (options.help) {
@@ -218,6 +232,7 @@ function parseRunMode(args: string[]): CliConfig {
     ? {
         mode: "run",
         headless: !Boolean(options.window),
+        ...(options.persistCookies ? { persistCookies: true } : {}),
         browserCookies,
       }
     : {

@@ -28,6 +28,7 @@
     "src/install-extension.ts",
     "src/main.ts",
     "src/output.ts",
+    "src/persisted-cookies.ts",
     "README.org"
   ],
   "scripts": {

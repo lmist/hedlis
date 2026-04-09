@@ -55,6 +55,27 @@ test("parseCli parses runtime browser-cookie config without requiring --cookie-u
   );
 });
 
+test("parseCli parses runtime browser-cookie config with persistence enabled", () => {
+  assert.deepEqual(
+    parseCli([
+      "node",
+      "dist/main.js",
+      "run",
+      "--cookies-from-browser",
+      "chrome",
+      "--persist-cookies",
+    ]),
+    {
+      mode: "run",
+      headless: true,
+      persistCookies: true,
+      browserCookies: {
+        browser: "chrome",
+      },
+    }
+  );
+});
+
 test("parseCli parses runtime browser-cookie config with an explicit URL", () => {
   assert.deepEqual(
     parseCli([
@@ -133,6 +154,19 @@ test("parseCli rejects --chrome-profile without --cookies-from-browser", () => {
         "run",
         "--chrome-profile",
         "Profile 2",
+      ]),
+    /cookies-from-browser/i
+  );
+});
+
+test("parseCli rejects --persist-cookies without --cookies-from-browser", () => {
+  assert.throws(
+    () =>
+      parseCli([
+        "node",
+        "dist/main.js",
+        "run",
+        "--persist-cookies",
       ]),
     /cookies-from-browser/i
   );

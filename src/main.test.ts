@@ -144,6 +144,7 @@ test("main honors injected app paths for the extension cache", async () => {
   await main(["node", "dist/main.js", "run"], {
     appPaths: {
       extensionsDir: "/tmp/injected-cache",
+      cookiesDir: "/tmp/injected-cookies",
     },
     prepareRequiredExtension: async (extensionsDir: string) => {
       seenExtensionsDirs.push(extensionsDir);
@@ -174,6 +175,7 @@ test("main adds the resolved runtime cookie set to the browser context on succes
     {
       appPaths: {
         extensionsDir: "/tmp/injected-cache",
+        cookiesDir: "/tmp/injected-cookies",
       },
       readChromeCookies: async () => [
         cookie({ name: "runtime", value: "3" }),
@@ -233,6 +235,83 @@ test("main resolves browser cookie targets interactively in a TTY when no cookie
   assert.deepEqual(readChromeCookieCalls, [
     { url: "https://x.com", profile: "Profile 2" },
   ]);
+});
+
+test("main persists imported cookies when the user accepts the prompt", async () => {
+  const persistedWrites: Array<{ path: string; data: string }> = [];
+  const createdDirs: string[] = [];
+
+  await main(
+    [
+      "node",
+      "dist/main.js",
+      "run",
+      "--cookies-from-browser",
+      "chrome",
+      "--cookie-url",
+      "https://x.com",
+      "--persist-cookies",
+    ],
+    {
+      stdinIsTTY: true,
+      stdoutIsTTY: true,
+      appPaths: {
+        extensionsDir: "/tmp/injected-cache",
+        cookiesDir: "/tmp/injected-cookies",
+      },
+      readChromeCookies: async () => [cookie({ name: "runtime", value: "3" })],
+      confirmPersistCookies: async () => true,
+      prepareRequiredExtension: async () => "/tmp/opencli-extension",
+      makeTempDir: () => "/tmp/cloak-profile",
+      makeDir: (targetPath: string) => {
+        createdDirs.push(targetPath);
+      },
+      writeFile: (targetPath: string, data: string) => {
+        persistedWrites.push({ path: targetPath, data });
+      },
+      launchPersistentContext: async () => fakeContext(),
+    }
+  );
+
+  assert.deepEqual(createdDirs, ["/tmp/injected-cookies", "/tmp/cloak-profile/Default"]);
+  assert.equal(persistedWrites[0]?.path, "/tmp/injected-cookies/x.com.json");
+  assert.match(persistedWrites[0]?.data ?? "", /"name": "runtime"/);
+});
+
+test("main skips cookie persistence when the user declines the prompt", async () => {
+  const persistedWrites: string[] = [];
+
+  await main(
+    [
+      "node",
+      "dist/main.js",
+      "run",
+      "--cookies-from-browser",
+      "chrome",
+      "--cookie-url",
+      "https://x.com",
+      "--persist-cookies",
+    ],
+    {
+      stdinIsTTY: true,
+      stdoutIsTTY: true,
+      appPaths: {
+        extensionsDir: "/tmp/injected-cache",
+        cookiesDir: "/tmp/injected-cookies",
+      },
+      readChromeCookies: async () => [cookie({ name: "runtime", value: "3" })],
+      confirmPersistCookies: async () => false,
+      prepareRequiredExtension: async () => "/tmp/opencli-extension",
+      makeTempDir: () => "/tmp/cloak-profile",
+      makeDir: () => undefined,
+      writeFile: (targetPath: string) => {
+        persistedWrites.push(targetPath);
+      },
+      launchPersistentContext: async () => fakeContext(),
+    }
+  );
+
+  assert.deepEqual(persistedWrites, ["/tmp/cloak-profile/Default/Preferences"]);
 });
 
 test("main auto-selects a single-site profile without opening the picker", async () => {
@@ -300,6 +379,29 @@ test("main requires a cookie URL outside an interactive terminal when browser co
   );
 });
 
+test("main requires a TTY when cookie persistence is requested", async () => {
+  await assert.rejects(
+    main(
+      [
+        "node",
+        "dist/main.js",
+        "run",
+        "--cookies-from-browser",
+        "chrome",
+        "--cookie-url",
+        "https://x.com",
+        "--persist-cookies",
+      ],
+      {
+        stdinIsTTY: false,
+        stdoutIsTTY: false,
+        readChromeCookies: async () => [cookie({ name: "runtime", value: "3" })],
+      }
+    ),
+    /persist-cookies requires an interactive terminal/
+  );
+});
+
 test("main prints a plain-text profile site report outside a TTY", async () => {
   let launchCalls = 0;
   let stdout = "";
@@ -341,6 +443,7 @@ test("main uses the patchright launch contract for headless startup", async () =
   await main(["node", "dist/main.js", "run"], {
     appPaths: {
       extensionsDir: "/tmp/injected-cache",
+      cookiesDir: "/tmp/injected-cookies",
     },
     prepareRequiredExtension: async () => "/tmp/opencli-extension",
     makeTempDir: () => "/tmp/cloak-profile",
@@ -374,6 +477,7 @@ test("main opens a visible browser window when run mode uses --window", async ()
   await main(["node", "dist/main.js", "run", "--window"], {
     appPaths: {
       extensionsDir: "/tmp/injected-cache",
+      cookiesDir: "/tmp/injected-cookies",
     },
     prepareRequiredExtension: async () => "/tmp/opencli-extension",
     makeTempDir: () => "/tmp/cloak-profile",
@@ -396,6 +500,7 @@ test("main fails before browser launch when required extension bootstrap fails",
     main(["node", "dist/main.js", "run"], {
       appPaths: {
         extensionsDir: "/tmp/injected-cache",
+        cookiesDir: "/tmp/injected-cookies",
       },
       prepareRequiredExtension: async () => {
         throw new Error("extension download failed");
@@ -423,6 +528,7 @@ test("main preserves extension loading args for the required extension", async (
   await main(["node", "dist/main.js", "run"], {
     appPaths: {
       extensionsDir: "/tmp/injected-cache",
+      cookiesDir: "/tmp/injected-cookies",
     },
     prepareRequiredExtension: async () => "/tmp/ext-a",
     makeTempDir: () => "/tmp/cloak-profile",
@@ -457,6 +563,7 @@ test("main removes SIGINT and SIGTERM listeners before returning", async () => {
     await main(["node", "dist/main.js", "run"], {
       appPaths: {
         extensionsDir: "/tmp/injected-cache",
+        cookiesDir: "/tmp/injected-cookies",
       },
       prepareRequiredExtension: async () => "/tmp/opencli-extension",
       makeTempDir: () => "/tmp/cloak-profile",

@@ -3,6 +3,7 @@ import { chromium as patchrightChromium } from "patchright";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
+import readline from "node:readline/promises";
 import { resolveAppPaths, type AppPaths } from "./app-paths.js";
 import { prepareRequiredExtension } from "./extension.js";
 import type { Cookie } from "./cookies.js";
@@ -16,6 +17,7 @@ import {
   listChromeProfileSites,
 } from "./chrome-profile-sites.js";
 import { runChromeSitePicker } from "./chrome-site-picker.js";
+import { persistedCookiePath, serializeCookies } from "./persisted-cookies.js";
 import { formatError, formatInfo, formatSuccess, formatWarning } from "./output.js";
 
 type ResolveStartupCookiesDependencies = {
@@ -36,11 +38,20 @@ type LaunchOptions = {
   executablePath?: string;
 };
 
+type ConfirmPersistCookiesOptions = {
+  cookieCount: number;
+  targetPath: string;
+  url: string;
+};
+
 type MainDependencies = ResolveStartupCookiesDependencies & {
   appPaths?: AppPaths;
   prepareRequiredExtension?: typeof prepareRequiredExtension;
   listChromeProfileSites?: typeof listChromeProfileSites;
   selectChromeSite?: typeof runChromeSitePicker;
+  confirmPersistCookies?: (
+    options: ConfirmPersistCookiesOptions
+  ) => Promise<boolean>;
   launchPersistentContext?: (
     userDataDir: string,
     options: LaunchOptions
@@ -135,6 +146,7 @@ export async function main(
   const cookies = await resolveStartupCookies(resolvedCli, {
     readChromeCookies: dependencies.readChromeCookies,
   });
+  await persistStartupCookies(resolvedCli, cookies, appPaths, dependencies);
   const prepareExtension =
     dependencies.prepareRequiredExtension ?? prepareRequiredExtension;
   const launchPersistentContext =
@@ -305,4 +317,65 @@ function isInteractiveTerminal(
   const stdinIsTTY = dependencies.stdinIsTTY ?? process.stdin.isTTY ?? false;
   const stdoutIsTTY = dependencies.stdoutIsTTY ?? process.stdout.isTTY ?? false;
   return stdinIsTTY && stdoutIsTTY;
+}
+
+async function persistStartupCookies(
+  cli: RunModeConfig,
+  cookies: Cookie[],
+  appPaths: AppPaths,
+  dependencies: Pick<
+    MainDependencies,
+    "confirmPersistCookies" | "makeDir" | "writeFile" | "stdinIsTTY" | "stdoutIsTTY"
+  >
+): Promise<void> {
+  if (!cli.persistCookies) {
+    return;
+  }
+
+  if (!cli.browserCookies?.url) {
+    throw new Error("Cookie persistence requires a resolved browser cookie URL.");
+  }
+
+  if (!isInteractiveTerminal(dependencies)) {
+    throw new Error("--persist-cookies requires an interactive terminal");
+  }
+
+  const targetPath = persistedCookiePath(cli.browserCookies.url, appPaths.cookiesDir);
+  const confirmPersistCookies =
+    dependencies.confirmPersistCookies ?? defaultConfirmPersistCookies;
+  const accepted = await confirmPersistCookies({
+    cookieCount: cookies.length,
+    targetPath,
+    url: cli.browserCookies.url,
+  });
+
+  if (!accepted) {
+    return;
+  }
+
+  const makeDir = dependencies.makeDir ?? fs.mkdirSync;
+  const writeFile = dependencies.writeFile ?? fs.writeFileSync;
+  makeDir(appPaths.cookiesDir, { recursive: true });
+  writeFile(targetPath, serializeCookies(cookies));
+  console.log(formatSuccess(`Persisted ${cookies.length} cookies to ${targetPath}`));
+}
+
+async function defaultConfirmPersistCookies(
+  options: ConfirmPersistCookiesOptions
+): Promise<boolean> {
+  const prompt = [
+    `Persist ${options.cookieCount} imported Chrome cookies for ${options.url}`,
+    `to ${options.targetPath}? [y/N] `,
+  ].join("\n");
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  try {
+    const answer = await rl.question(prompt);
+    return /^(y|yes)$/i.test(answer.trim());
+  } finally {
+    rl.close();
+  }
 }

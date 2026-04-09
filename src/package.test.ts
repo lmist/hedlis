@@ -46,6 +46,7 @@ test("package metadata exposes the cloak binary", () => {
     "src/install-extension.ts",
     "src/main.ts",
     "src/output.ts",
+    "src/persisted-cookies.ts",
     "README.org",
   ]);
   assert.equal(packageJson.scripts?.postinstall, "node scripts/postinstall.cjs");
@@ -152,7 +153,9 @@ test("readme documents the current Node workflow and CLI surface", () => {
   assert.match(readme, /profiles list/);
   assert.match(readme, /\bcloak run\b/);
   assert.match(readme, /--window/);
+  assert.match(readme, /--persist-cookies/);
   assert.match(readme, /~\/\.cache\/cloak/);
+  assert.match(readme, /~\/\.config\/cloak\/cookies/);
   assert.match(readme, /https:\/\/x\.com/);
   assert.match(readme, /chrome-profile "Default"/);
   assert.match(readme, /--cookies-from-browser chrome/);
