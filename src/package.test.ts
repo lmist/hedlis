@@ -11,6 +11,7 @@ test("package metadata exposes the cloak binary", () => {
   ) as {
     name?: string;
     engines?: Record<string, string>;
+    repository?: { type?: string; url?: string };
     bin?: Record<string, string>;
     files?: string[];
     scripts?: Record<string, string>;
@@ -21,6 +22,10 @@ test("package metadata exposes the cloak binary", () => {
   };
 
   assert.equal(packageJson.name, "@lmist/cloak");
+  assert.deepEqual(packageJson.repository, {
+    type: "git",
+    url: "https://github.com/lmist/cloak",
+  });
   assert.equal(packageJson.engines?.node, ">=20");
   assert.deepEqual(packageJson.bin, {
     cloak: "bin/cloak.js",

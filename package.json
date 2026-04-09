@@ -2,6 +2,10 @@
   "name": "@lmist/cloak",
   "version": "1.0.0",
   "description": "Patchright runner with required OpenCLI extension and Chrome cookie support",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lmist/cloak"
+  },
   "engines": {
     "node": ">=20"
   },
