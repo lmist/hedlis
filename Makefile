@@ -5,8 +5,8 @@
 help:
 	@printf '%s\n' \
 		'cloak make targets:' \
-		'  make install      - npm install and extension bootstrap' \
-		'  make browser      - install Patchright Chromium' \
+		'  make install      - npm install plus extension and browser bootstrap' \
+		'  make browser      - retry Patchright Chromium install' \
 		'  make test         - run npm test' \
 		'  make typecheck    - run tsc --noEmit' \
 		'  make build        - build dist/' \

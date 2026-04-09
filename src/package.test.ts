@@ -72,6 +72,16 @@ test("main entrypoint preserves a node shebang for the built CLI", () => {
   assert.match(mainScript, /^#!\/usr\/bin\/env node/m);
 });
 
+test("postinstall warms the extension cache and installs Patchright Chromium", () => {
+  const postinstall = fs.readFileSync(path.resolve("scripts/postinstall.cjs"), "utf8");
+
+  assert.match(postinstall, /"src", "install-extension\.ts"/);
+  assert.match(postinstall, /"node_modules", "patchright", "cli\.js"/);
+  assert.match(postinstall, /"install", "chromium"/);
+  assert.match(postinstall, /failed to warm the OpenCLI extension cache during postinstall/);
+  assert.match(postinstall, /failed to install the Patchright Chromium browser during postinstall/);
+});
+
 test("package tarball includes the built node entrypoint", () => {
   const npmCacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cloak-npm-cache-"));
   execFileSync("npm", ["run", "build"], {

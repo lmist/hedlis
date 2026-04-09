@@ -3,8 +3,8 @@ set shell := ["zsh", "-cu"]
 help:
   @printf '%s\n' \
     'cloak just recipes:' \
-    '  just install      - npm install and extension bootstrap' \
-    '  just browser      - install Patchright Chromium' \
+    '  just install      - npm install plus extension and browser bootstrap' \
+    '  just browser      - retry Patchright Chromium install' \
     '  just test         - run npm test' \
     '  just typecheck    - run tsc --noEmit' \
     '  just build        - build dist/' \

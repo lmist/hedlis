@@ -28,7 +28,6 @@ Chrome cookie import is an optional runtime feature. The base install should sti
 - Node.js 20 or newer
 - npm
 - git
-- =npx patchright install chromium= at least once on the machine
 - Google Chrome, only if you want runtime cookie injection
 
 * install
@@ -40,8 +39,18 @@ Once the npm release is live, install =cloak= globally and verify the CLI:
 set -euo pipefail
 
 npm install -g cloak
-npx patchright install chromium
 cloak --help
+#+end_src
+
+During =npm install=, =cloak= now tries to:
+
+- warm the pinned OpenCLI extension cache
+- install the Patchright Chromium browser
+
+If the browser download step ever gets skipped or fails in your environment, retry it manually:
+
+#+begin_src sh
+npx patchright install chromium
 #+end_src
 
 Until the npm release is live, use the =from source= section below.
@@ -73,7 +82,6 @@ fi
 
 cd "$repo_dir"
 npm install
-npx patchright install chromium
 npm run build
 node dist/main.js --help
 #+end_src
@@ -87,7 +95,6 @@ set -euo pipefail
 repo_dir="${REPO_DIR:-$HOME/src/cloak}"
 cd "$repo_dir"
 npm install
-npx patchright install chromium
 npm run build
 npm install -g .
 cloak --help
