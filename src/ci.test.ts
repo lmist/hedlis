@@ -60,7 +60,7 @@ test("publish workflow supports manual dispatch and release publishing", () => {
 
   assert.match(workflow, /^on:/m);
   assert.match(workflow, /workflow_dispatch:/);
-  assert.match(workflow, /release:\s*\n\s+types:\s*\n\s+- published/m);
+  assert.doesNotMatch(workflow, /release:\s*\n\s+types:\s*\n\s+- published/m);
 });
 
 test("publish workflow configures npm auth and provenance publishing", () => {
@@ -93,11 +93,14 @@ test("release workflow validates the tag and creates a GitHub release", () => {
   assert.match(workflow, /fetch-depth:\s+0/);
   assert.match(workflow, /uses:\s+actions\/setup-node@v5/);
   assert.match(workflow, /sudo apt-get update && sudo apt-get install -y pandoc/);
+  assert.match(workflow, /id-token:\s+write/);
   assert.match(workflow, /npm ci/);
   assert.match(workflow, /npm run check-readme/);
   assert.match(workflow, /npm test/);
   assert.match(workflow, /npm run typecheck/);
   assert.match(workflow, /npm run build/);
   assert.match(workflow, /node scripts\/check-release-tag\.cjs/);
+  assert.match(workflow, /npm publish --provenance/);
+  assert.match(workflow, /NODE_AUTH_TOKEN:\s+\$\{\{\s*secrets\.NPM_TOKEN\s*\}\}/);
   assert.match(workflow, /gh release create "\$RELEASE_TAG" --title "\$RELEASE_TAG" --generate-notes/);
 });
