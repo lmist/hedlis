@@ -15,27 +15,41 @@ test("package metadata exposes the cloak binary", () => {
     files?: string[];
     scripts?: Record<string, string>;
     dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
   };
 
   assert.equal(packageJson.name, "cloak");
   assert.equal(packageJson.engines?.node, ">=20");
   assert.deepEqual(packageJson.bin, {
-    cloak: "dist/main.js",
+    cloak: "bin/cloak.js",
   });
-  assert.deepEqual(packageJson.files, ["dist", "scripts/postinstall.cjs", "README.org"]);
+  assert.deepEqual(packageJson.files, [
+    "bin",
+    "dist",
+    "scripts/postinstall.cjs",
+    "src",
+    "README.org",
+  ]);
   assert.equal(packageJson.scripts?.postinstall, "node scripts/postinstall.cjs");
   assert.equal(
     packageJson.scripts?.build,
-    "tsc --project tsconfig.build.json"
+    "node ./node_modules/typescript/bin/tsc --project tsconfig.build.json"
   );
+  assert.equal(packageJson.scripts?.prepare, undefined);
   assert.equal(packageJson.scripts?.prepack, "npm run build");
   assert.equal(packageJson.scripts?.test, "node --import tsx --test src/**/*.test.ts");
-  assert.equal(packageJson.scripts?.typecheck, "tsc --noEmit");
+  assert.equal(
+    packageJson.scripts?.typecheck,
+    "node ./node_modules/typescript/bin/tsc --noEmit"
+  );
   assert.equal(packageJson.scripts?.start, "node --import tsx src/main.ts");
   assert.ok(packageJson.dependencies?.patchright);
   assert.ok(packageJson.dependencies?.["adm-zip"]);
+  assert.ok(packageJson.dependencies?.tsx);
   assert.ok(packageJson.dependencies?.chalk);
   assert.ok(packageJson.dependencies?.yargs);
+  assert.ok(packageJson.devDependencies?.typescript);
+  assert.ok(packageJson.devDependencies?.["@types/node"]);
   assert.equal(packageJson.dependencies?.commander, undefined);
 });
 
@@ -66,35 +80,44 @@ test("package tarball includes the built node entrypoint", () => {
   }>;
   const packedPaths = files.map((file) => file.path);
 
+  assert.ok(packedPaths.includes("bin/cloak.js"));
   assert.ok(packedPaths.includes("dist/main.js"));
   assert.ok(packedPaths.includes("scripts/postinstall.cjs"));
-  assert.ok(!packedPaths.includes("src/main.ts"));
+  assert.ok(packedPaths.includes("src/main.ts"));
 });
 
 test("readme documents the current Node workflow and CLI surface", () => {
   const readme = fs.readFileSync(path.resolve("README.org"), "utf8");
 
   assert.match(readme, /^#\+title: cloak$/m);
+  assert.match(readme, /^#\+property: header-args:sh :results output verbatim :exports code$/m);
+  assert.match(readme, /^\* what it is$/m);
+  assert.match(readme, /^\* prerequisites$/m);
+  assert.match(readme, /^\* install$/m);
+  assert.match(readme, /^\* from source$/m);
+  assert.match(readme, /^\* setup and usage$/m);
+  assert.match(readme, /^\* one sharp edge$/m);
+  assert.match(readme, /npm install -g github:lmist\/cloak/);
   assert.match(readme, /git clone https:\/\/github\.com\/lmist\/cloak\.git/);
   assert.match(readme, /npm install/);
+  assert.match(readme, /npx patchright install chromium/);
   assert.match(readme, /npm run build/);
-  assert.match(readme, /npm test/);
+  assert.match(readme, /node dist\/main\.js --help/);
+  assert.match(readme, /npm install -g \./);
+  assert.match(readme, /cloak --help/);
   assert.match(readme, /npm install -g @jackwener\/opencli/);
   assert.match(readme, /npx skills add jackwener\/opencli/);
-  assert.match(readme, /asks for consent before creating .*~\/\.config\/cloak/);
-  assert.match(readme, /If install is non-interactive/);
-  assert.match(readme, /npx patchright install chromium/);
+  assert.match(readme, /npm test/);
   assert.match(readme, /https:\/\/github\.com\/Kaliiiiiiiiii-Vinyzu\/patchright\//);
   assert.match(readme, /https:\/\/github\.com\/jackwener\/opencli/);
   assert.match(readme, /https:\/\/github\.com\/jackwener\/opencli\/releases\/download\/v1\.6\.8\/opencli-extension\.zip/);
-  assert.match(readme, /Claude Code or Cursor/);
-  assert.match(readme, /adapt to new requests/);
-  assert.match(readme, /build or refine adapters/);
   assert.match(readme, /profiles list/);
-  assert.match(readme, /\brun\b/);
+  assert.match(readme, /\bcloak run\b/);
   assert.match(readme, /--window/);
-  assert.match(readme, /~\/\.config\/cloak/);
+  assert.match(readme, /~\/\.cache\/cloak/);
   assert.match(readme, /https:\/\/x\.com/);
   assert.match(readme, /chrome-profile "Default"/);
-  assert.match(readme, /cookies import/);
+  assert.match(readme, /--cookies-from-browser chrome/);
+  assert.match(readme, /chrome-cookies-secure/);
+  assert.doesNotMatch(readme, /cookies import/);
 });
