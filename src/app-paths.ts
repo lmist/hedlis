@@ -3,7 +3,9 @@ import path from "node:path";
 
 export type AppPaths = {
   extensionsDir: string;
-  cookiesDir: string;
+  configDir: string;
+  stateDbPath: string;
+  daemonLogPath: string;
 };
 
 export function defaultAppRootDir(
@@ -30,6 +32,8 @@ export function resolveAppPaths(
 ): AppPaths {
   return {
     extensionsDir: rootDir,
-    cookiesDir: path.join(configDir, "cookies"),
+    configDir,
+    stateDbPath: path.join(configDir, "state.sqlite"),
+    daemonLogPath: path.join(configDir, "daemon.log"),
   };
 }

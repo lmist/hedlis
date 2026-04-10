@@ -19,9 +19,11 @@ test("defaultAppRootDir resolves to ~/.cache/cloak", () => {
 test("resolveAppPaths uses the cache root as the extension cache directory", () => {
   assert.deepEqual(resolveAppPaths("/tmp/cloak", "/tmp/cloak-config"), {
     extensionsDir: "/tmp/cloak",
-    cookiesDir: "/tmp/cloak-config/cookies",
-  });
-});
+    configDir: "/tmp/cloak-config",
+    stateDbPath: "/tmp/cloak-config/state.sqlite",
+    daemonLogPath: "/tmp/cloak-config/daemon.log",
+  })
+})
 
 test("defaultConfigRootDir resolves to ~/.config/cloak", () => {
   assert.equal(

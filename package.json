@@ -1,14 +1,14 @@
 {
   "name": "@lmist/cloak",
-  "version": "1.1.1",
-  "description": "Browser sidecar for OpenCLI with the required extension and Chrome cookie support",
+  "version": "2.0.0",
+  "description": "Chrome sidecar for OpenCLI with daemonized Patchright startup and remembered cookie URLs",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lmist/cloak"
+    "url": "git+https://github.com/lmist/cloak.git"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "bin": {
     "cloak": "bin/cloak.js"
@@ -26,14 +26,14 @@
     "src/chrome-cookies.ts",
     "src/chrome-profile-sites.ts",
     "src/chrome-profiles.ts",
-    "src/chrome-site-picker.ts",
     "src/cli.ts",
     "src/cookies.ts",
+    "src/daemon.ts",
     "src/extension.ts",
     "src/install-extension.ts",
     "src/main.ts",
     "src/output.ts",
-    "src/persisted-cookies.ts",
+    "src/state-db.ts",
     "README.md",
     "README.org"
   ],
@@ -58,8 +58,7 @@
     "yargs": "^17.7.2"
   },
   "optionalDependencies": {
-    "chrome-cookies-secure": "^3.0.1",
-    "sqlite3": "^5.1.7"
+    "chrome-cookies-secure": "^3.0.1"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.7",

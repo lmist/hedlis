@@ -3,7 +3,7 @@ import { normalizeCookie, type Cookie } from "./cookies.js";
 export const CHROME_COOKIE_LIMITATION_WARNING =
   "Known limitation: Chrome cookie extraction may collapse same-name cookies across different paths or subdomains before cloak sees them. If imported/runtime cookies look incomplete or login still fails, this may be the cause.";
 export const CHROME_COOKIE_SUPPORT_MISSING_ERROR =
-  "Chrome cookie support is not available in this install. Reinstall cloak in an environment where optional native dependencies can be installed, or run cloak without --cookies-from-browser.";
+  "Chrome cookie support is not available in this install. Reinstall cloak in an environment where optional native dependencies can be installed, or run cloak without --cookie-url.";
 
 type ChromePuppeteerCookie = {
   name: string;

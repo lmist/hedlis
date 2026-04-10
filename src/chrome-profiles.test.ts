@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { listChromeProfiles } from "./chrome-profiles.js";
+import { hasChromeUserDataDir, listChromeProfiles } from "./chrome-profiles.js";
 
 test("listChromeProfiles returns profiles with valid Preferences files", () => {
   const files: Record<string, string> = {
@@ -163,4 +163,21 @@ test("listChromeProfiles handles Preferences missing profile.name", () => {
   assert.deepEqual(result, [
     { directory: "Profile 1", name: "Work" },
   ]);
+});
+
+test("hasChromeUserDataDir checks for the expected Chrome root", () => {
+  assert.equal(
+    hasChromeUserDataDir({
+      chromeUserDataDir: "/chrome",
+      pathExists: (targetPath: string) => targetPath === "/chrome",
+    }),
+    true
+  );
+  assert.equal(
+    hasChromeUserDataDir({
+      chromeUserDataDir: "/missing",
+      pathExists: () => false,
+    }),
+    false
+  );
 });

@@ -12,8 +12,16 @@ type QueryRow = {
   host_key: string | null;
 };
 
-export const CHROME_PROFILE_SITE_DISCOVERY_MISSING_ERROR =
-  "Chrome profile site discovery is not available in this install. Reinstall cloak in an environment where the optional sqlite3 dependency can be installed successfully.";
+type StatementLike = {
+  all(...parameters: unknown[]): Array<Record<string, unknown>>;
+};
+
+type DatabaseLike = {
+  prepare(sql: string): StatementLike;
+  close(): void;
+};
+
+type DatabaseConstructor = new (path: string) => DatabaseLike;
 
 type ReadCookieHostsDependencies = {
   chromeUserDataDir?: string;
@@ -33,6 +41,16 @@ type ListChromeProfileSitesDependencies = {
   ) => Promise<string[]>;
 };
 
+type ListChromeProfileCookieUrlsDependencies = ReadCookieHostsDependencies & {
+  readCookieHosts?: (
+    options: {
+      chromeUserDataDir: string;
+      profileDirectory: string;
+    },
+    dependencies?: ReadCookieHostsDependencies
+  ) => Promise<string[]>;
+};
+
 export type ChromeSite = {
   host: string;
   url: string;
@@ -41,6 +59,14 @@ export type ChromeSite = {
 export type ChromeProfileSites = ChromeProfile & {
   sites: ChromeSite[];
 };
+
+function loadDatabaseConstructor(): DatabaseConstructor {
+  const sqlite = require("node:sqlite") as {
+    DatabaseSync: DatabaseConstructor;
+  };
+
+  return sqlite.DatabaseSync;
+}
 
 export function normalizeCookieHosts(hosts: string[]): string[] {
   const seen = new Set<string>();
@@ -67,6 +93,30 @@ export function siteHostToUrl(host: string): string {
     host === "localhost" || net.isIP(ipCandidate) !== 0 ? "http" : "https";
 
   return `${protocol}://${host}`;
+}
+
+export async function listChromeProfileCookieUrls(
+  options: {
+    profileDirectory: string;
+  },
+  dependencies: ListChromeProfileCookieUrlsDependencies = {}
+): Promise<string[]> {
+  const chromeUserDataDir =
+    dependencies.chromeUserDataDir ?? defaultChromeUserDataDir();
+  const readCookieHosts =
+    dependencies.readCookieHosts ?? readCookieHostsForChromeProfile;
+  const hosts = await readCookieHosts(
+    {
+      chromeUserDataDir,
+      profileDirectory: options.profileDirectory,
+    },
+    {
+      ...dependencies,
+      chromeUserDataDir,
+    }
+  );
+
+  return hosts.map(siteHostToUrl);
 }
 
 export function resolveChromeCookiesDatabasePath(
@@ -118,12 +168,7 @@ async function readCookieHostsForChromeProfile(
 
     const hosts = await queryHosts(stagedPath);
     return normalizeCookieHosts(hosts);
-  } catch (error) {
-    const supportError = coerceChromeProfileSiteDiscoveryError(error);
-    if (supportError) {
-      throw supportError;
-    }
-
+  } catch {
     return [];
   } finally {
     removeDir(tempRoot, { recursive: true, force: true });
@@ -205,67 +250,25 @@ function copyOptionalSidecar(
 }
 
 async function queryDistinctCookieHosts(databasePath: string): Promise<string[]> {
-  const sqlite3 = loadSqlite3();
+  const DatabaseSync = loadDatabaseConstructor();
+  const database = new DatabaseSync(databasePath);
 
-  return new Promise((resolve, reject) => {
-    const database = new sqlite3.Database(
-      databasePath,
-      sqlite3.OPEN_READONLY,
-      (openError: Error | null) => {
-        if (openError) {
-          reject(openError);
-          return;
-        }
-
-        database.all(
-          [
-            "SELECT DISTINCT host_key",
-            "FROM cookies",
-            "WHERE host_key IS NOT NULL AND host_key != ''",
-            "ORDER BY host_key COLLATE NOCASE",
-          ].join(" "),
-          (queryError: Error | null, rows: QueryRow[]) => {
-            database.close(() => undefined);
-
-            if (queryError) {
-              reject(queryError);
-              return;
-            }
-
-            resolve(
-              rows
-                .map((row) => row.host_key ?? "")
-                .filter((host) => host.length > 0)
-            );
-          }
-        );
-      }
-    );
-  });
-}
-
-export function coerceChromeProfileSiteDiscoveryError(error: unknown): Error | undefined {
-  if (
-    error &&
-    typeof error === "object" &&
-    "code" in error &&
-    (error as { code?: string }).code === "MODULE_NOT_FOUND"
-  ) {
-    return new Error(CHROME_PROFILE_SITE_DISCOVERY_MISSING_ERROR);
-  }
-
-  return undefined;
-}
-
-function loadSqlite3(): typeof import("sqlite3") {
   try {
-    return require("sqlite3") as typeof import("sqlite3");
-  } catch (error) {
-    const supportError = coerceChromeProfileSiteDiscoveryError(error);
-    if (supportError) {
-      throw supportError;
-    }
+    const rows = database
+      .prepare(
+        [
+          "SELECT DISTINCT host_key",
+          "FROM cookies",
+          "WHERE host_key IS NOT NULL AND host_key != ''",
+          "ORDER BY host_key COLLATE NOCASE",
+        ].join(" ")
+      )
+      .all() as QueryRow[];
 
-    throw error;
+    return rows
+      .map((row) => row.host_key ?? "")
+      .filter((host) => host.length > 0);
+  } finally {
+    database.close();
   }
 }

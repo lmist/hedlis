@@ -10,6 +10,7 @@ export type ChromeProfile = {
 
 type Dependencies = {
   chromeUserDataDir?: string;
+  pathExists?: (path: string) => boolean;
   readdir?: (dir: string) => string[];
   readFile?: (path: string) => string;
 };
@@ -79,4 +80,13 @@ export function listChromeProfiles(dependencies: Dependencies = {}): ChromeProfi
 
   profiles.sort((a, b) => a.directory.localeCompare(b.directory));
   return profiles;
+}
+
+export function hasChromeUserDataDir(
+  dependencies: Pick<Dependencies, "chromeUserDataDir" | "pathExists"> = {}
+): boolean {
+  const userDataDir = dependencies.chromeUserDataDir ?? defaultChromeUserDataDir();
+  const pathExists = dependencies.pathExists ?? fs.existsSync;
+
+  return pathExists(userDataDir);
 }

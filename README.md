@@ -6,6 +6,32 @@
 
 `cloak` is the browser sidecar for [OpenCLI](https://github.com/jackwener/opencli). It launches a fresh [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright/) browser with the pinned [OpenCLI extension archive](https://github.com/jackwener/opencli/releases/download/v1.6.8/opencli-extension.zip) loaded every time it starts.
 
+# motivation
+
+OpenCLI's default browser-backed flow still centers a browser profile that already has the OpenCLI Browser Bridge installed and logged into the target sites. The daemon is real, but it is only the local bridge in the path `opencli CLI -> local daemon -> Browser Bridge extension -> Chrome APIs`. It is not, by itself, a disposable browser runner with its own cookie import workflow.
+
+That means a user who is comfortable creating a separate Chrome or Chromium profile for OpenCLI, installing the extension there, and logging into sites there may not need `cloak`. That setup is simpler and has fewer moving parts.
+
+`cloak` exists for the narrower case where that tradeoff is not acceptable: keep the OpenCLI extension out of the browser profile used for daily browsing, while still reusing login state from that profile when needed.
+
+It does that by launching a fresh Patchright Chromium with the pinned OpenCLI extension loaded and, when requested, importing cookies from a chosen local Chrome profile into that temporary browser context.
+
+This solves a specific product gap:
+
+- OpenCLI assumes extension-in-profile session reuse.
+- A dedicated secondary browser profile avoids touching the main profile, but it still requires installing the extension and maintaining separate logged-in state.
+- `cloak` keeps the extension out of the daily browser profile while making cookie reuse explicit, scoped, and disposable.
+
+In practical terms, that gives `cloak` three concrete reasons to exist:
+
+- isolated runtime: the automation browser is fresh and disposable instead of being the user's normal browser profile
+- explicit cookie reuse: cookies can be imported for a selected site and profile on demand instead of assuming the active browser profile is the automation target
+- cleaner trust boundary: the extension does not need to live in the user's day-to-day browser profile
+
+That separation does not remove trust assumptions; it moves them. Instead of trusting the extension inside the daily browser profile, the user trusts `cloak` to read local Chrome cookies correctly and inject them into its temporary browser context. That is why `cloak` documents cookie-import limitations and keeps persisted cookie snapshots opt-in.
+
+OpenCLI also documents a direct CDP path for some remote and headless setups, but its regular website adapter model is still built around the Browser Bridge extension and browser-session cookie reuse. In that sense, `cloak` is not a duplicate of OpenCLI's daemon. It is the sidecar that fills the current gap between `install the extension in a browser profile` and `use a disposable browser while borrowing an existing Chrome session`.
+
 # install
 
 Install `cloak` globally and verify the CLI:
@@ -37,109 +63,80 @@ npx skills add jackwener/opencli
 
 If you installed from a checkout but did not run `npm install -g .`, use `node dist/main.js` everywhere below in place of `cloak`.
 
-Discover Chrome profiles and their cookie-bearing sites:
+Pick a default Chrome profile once:
 
 ``` bash
 cloak profiles list
+cloak profiles set default "Profile 7"
+cloak profiles status
 ```
 
-In an interactive terminal that opens a searchable picker. In a non-interactive terminal it prints a plain-text report grouped by profile.
+See the cookie-bearing URLs for the default profile and optionally remember a subset for future runs:
 
-Start a clean headless browser:
+``` bash
+cloak cookies list
+cloak cookies list --no-pager --limit 25
+```
+
+Run headless with the remembered profile and remembered URLs:
 
 ``` bash
 cloak run
 ```
 
-Start a visible window instead of headless mode:
+Run visibly instead of headless:
 
 ``` bash
 cloak run --window
 ```
 
-Let `cloak` pick a Chrome site interactively and inject cookies for a single run:
+Non-interactive path, using the saved default profile and remembering the URL without a prompt:
 
 ``` bash
-cloak run --cookies-from-browser chrome
+cloak run --persist-cookies --consent --cookie-url https://x.com
 ```
 
-Offer to persist the imported cookies after `cloak` reads them:
+Non-interactive path, using an explicit profile:
 
 ``` bash
-cloak run --cookies-from-browser chrome --persist-cookies
+cloak run --profile "Profile 7" --persist-cookies --consent --cookie-url https://x.com
 ```
 
-If you accept the prompt, `cloak` writes the imported cookie set under `~/.config/cloak/cookies/`, named after the site hostname. For example: `~/.config/cloak/cookies/x.com.json`.
-
-Use an explicit site URL and Chrome profile when you already know the target or when you are scripting it:
+Run as a daemon and manage it later:
 
 ``` bash
-cloak run --cookies-from-browser chrome --cookie-url https://x.com --chrome-profile "Default"
+cloak run --daemon
+cloak inspect
+cloak stop
+cloak restart
 ```
 
-Use this smoke test if you want a non-interactive startup check that exits automatically instead of waiting for Ctrl+C:
+See where `cloak` keeps its state, then destroy it if you really mean it:
 
 ``` bash
-set -euo pipefail
-
-if command -v cloak >/dev/null 2>&1; then
-  run_cloak() {
-    cloak "$@"
-  }
-else
-  run_cloak() {
-    node dist/main.js "$@"
-  }
-fi
-
-log_file="$(mktemp)"
-cleanup() {
-  rm -f "$log_file"
-}
-trap cleanup EXIT
-
-run_cloak run >"$log_file" 2>&1 &
-pid=$!
-sleep 5
-kill -INT "$pid" || true
-wait "$pid" || true
-cat "$log_file"
-```
-
-For local development inside the repository:
-
-``` bash
-set -euo pipefail
-
-npm test
-npm run typecheck
-npm run build
-
-if command -v make >/dev/null 2>&1; then
-  make ci
-fi
-
-if command -v just >/dev/null 2>&1; then
-  just ci
-fi
+cloak state display
+cloak state destroy
 ```
 
 # runtime and storage
 
 `cloak` launches headless by default. Pass `--window` when you want a visible browser window.
 
-If you import Chrome cookies, `cloak` reads them from the selected local Chrome profile at startup, injects them into the fresh browser context for that run, and does not write them back out unless you opt in with `--persist-cookies`.
+If you import Chrome cookies, `cloak` reads them live from the selected local Chrome profile at startup and injects them into the fresh browser context for that run.
 
-What persists:
+\(1\) What persists:
 
 - `~/.cache/cloak/opencli-extension.zip`
-- if you accept the `--persist-cookies` prompt, cookie snapshots under `~/.config/cloak/cookies/` named after the site hostname, for example `~/.config/cloak/cookies/x.com.json`
+- `~/.config/cloak/state.sqlite` with the default profile, remembered cookie URLs, and daemon state
+- `~/.config/cloak/daemon.log` when you use `cloak run --daemon`
 
-What stays ephemeral:
+Use `cloak state display` to print those paths, and `cloak state destroy` to remove the whole config tree after a confirmation prompt.
+
+\(2\) What stays ephemeral:
 
 - the extracted extension directory in the OS temp directory
 - the Patchright user data directory in the OS temp directory
-- the injected cookie set
+- the injected cookie set itself
 
 # build from source
 
@@ -164,4 +161,4 @@ cloak --help
 
 Chrome cookie extraction depends on `chrome-cookies-secure`, and that tool can collapse same-name cookies across different paths or subdomains before `cloak` sees them. If a login still fails after injection, that is the first thing to suspect.
 
-If `cloak run --cookies-from-browser chrome` tells you Chrome cookie support is unavailable, reinstall in an environment where the optional native dependency chain can be built successfully.
+If `cloak run --cookie-url https://x.com` tells you Chrome cookie support is unavailable, reinstall in an environment where the optional native dependency chain can be built successfully.
