@@ -1,6 +1,6 @@
 {
   "name": "@lmist/cloak",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Chrome sidecar for OpenCLI with daemonized Patchright startup and remembered cookie URLs",
   "license": "MIT",
   "repository": {

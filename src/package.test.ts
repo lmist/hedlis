@@ -27,7 +27,7 @@ test("package metadata exposes the cloak binary and current runtime contract", (
   const packageJson = readPackageJson()
 
   assert.equal(packageJson.name, "@lmist/cloak")
-  assert.equal(packageJson.version, "2.0.0")
+  assert.equal(packageJson.version, "2.0.1")
   assert.equal(packageJson.license, "MIT")
   assert.match(packageJson.description ?? "", /daemonized Patchright startup/i)
   assert.deepEqual(packageJson.repository, {
