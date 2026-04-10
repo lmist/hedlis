@@ -147,10 +147,10 @@ test("readme documents the current Node workflow and CLI surface", () => {
   assert.match(readme, /^#\+title: cloak$/m);
   assert.match(readme, /^#\+property: header-args:sh :results output verbatim :exports code$/m);
   assert.match(readme, /^\* what it is$/m);
-  assert.match(readme, /^\* prerequisites$/m);
   assert.match(readme, /^\* install$/m);
-  assert.match(readme, /^\* from source$/m);
-  assert.match(readme, /^\* setup and usage$/m);
+  assert.match(readme, /^\* usage$/m);
+  assert.match(readme, /^\* runtime and storage$/m);
+  assert.match(readme, /^\* build from source$/m);
   assert.match(readme, /^\* one sharp edge$/m);
   assert.match(readme, /npm install -g @lmist\/cloak/);
   assert.match(readme, /git clone https:\/\/github\.com\/lmist\/cloak\.git/);
@@ -172,6 +172,7 @@ test("readme documents the current Node workflow and CLI surface", () => {
   assert.match(readme, /--persist-cookies/);
   assert.match(readme, /~\/\.cache\/cloak/);
   assert.match(readme, /~\/\.config\/cloak\/cookies/);
+  assert.match(readme, /x\.com\.json/);
   assert.match(readme, /https:\/\/x\.com/);
   assert.match(readme, /chrome-profile "Default"/);
   assert.match(readme, /--cookies-from-browser chrome/);
